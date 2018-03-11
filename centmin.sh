@@ -272,7 +272,7 @@ fi
 #####################################################
 # Centmin Mod Git Repo URL - primary repo
 # https://github.com/centminmod/centminmod
-CMGIT='https://github.com/centminmod/centminmod.git'
+CMGIT='https://github.com/the-syndicate/centminmod.git'
 # Gitlab backup repo 
 # https://gitlab.com/centminmod/centminmod
 #CMGIT='https://gitlab.com/centminmod/centminmod.git'
