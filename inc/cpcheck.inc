@@ -1,3 +1,36 @@
+disable_varnishrepo() {
+  if [[ "$(rpm -ql varnish | grep -o 'not installed' >/dev/null 2>&1; echo $?)" -eq '0' && -f "$VARNISH_REPOFILE" ]]; then
+    # disable varnish cache packagecloud.io yum repo
+    # https://community.centminmod.com/threads/add-varnishrepo_disable-variable.14556/
+    yum-config-manager --disable varnishcache_varnish41 varnishcache_varnish41-source >/dev/null 2>&1
+  fi
+}
+
+csf_smtpports() {
+  if [[ "$(egrep '^TCP_OUT|^TCP6_OUT' /etc/csf/csf.conf | grep -wq '2525'; echo $?)" -ne '0' ]]; then
+    sed -i "s/TCP_OUT = \"/TCP_OUT = \"2525,/g" /etc/csf/csf.conf
+    sed -i "s/TCP6_OUT = \"/TCP6_OUT = \"2525,/g" /etc/csf/csf.conf
+    csf -ra > /dev/null 2>&1
+  fi
+}
+
+check_memcachedflush() {
+  if [[ -f /usr/bin/memflush && ! -f /usr/bin/memcachedflush ]]; then
+    echo "memflush --quiet --servers=localhost:11211" >/usr/bin/memcachedflush ; chmod 700 /usr/bin/memcachedflush
+  fi
+}
+
+ngxmaster_openfiles() {
+  # raise nginx process' open files limit from 1024
+  if [[ -f /etc/init.d/nginx && ! "$(grep -w 'ulimit -n 524288' /etc/init.d/nginx)" ]]; then
+    sed -i 's/#!\/bin\/sh/#!\/bin\/sh\nulimit -n 524288\n/' /etc/init.d/nginx
+    if [[ "$CENTOS_SEVEN" -eq '7' ]]; then
+      systemctl daemon-reload -q
+    fi
+    service nginx restart >/dev/null 2>&1
+  fi
+}
+
 ngx_gzipbuffersfix() {
   # raising default gzip_buffers setting to accommodate very very
   # large javascript js file libraries that can be as large as 5+ MB
@@ -190,36 +223,49 @@ disablelogs() {
 }
 
 varnishfour_setup() {
-  if [ -f /etc/yum.repos.d/varnish-4.1.repo ]; then
-      rm -rf /etc/yum.repos.d/varnish-4.1.repo
-      # yum -q clean all
-  fi
-  if [ -f /etc/yum.repos.d/varnish-4.1.OLD ]; then
-      rm -rf /etc/yum.repos.d/varnish-4.1.OLD
-  fi
-  if [ ! -f "$VARNISH_REPOFILE" ]; then
-    echo "update varnish cache 4.1 yum repo config"
-    os=centos
-    if [[ "$CENTOS_SEVEN" -eq '7' ]]; then
-        dist=7
-    else
-        dist=6
+  if [[ "$VARNISHREPO_DISABLE" = [nN] ]]; then
+    if [ -f /etc/yum.repos.d/varnish-4.1.repo ]; then
+        rm -rf /etc/yum.repos.d/varnish-4.1.repo
+        # yum -q clean all
     fi
-    yum_repo_path=$VARNISH_REPOFILE
-    yum_repo_config_url="https://packagecloud.io/install/repositories/varnishcache/varnish41/config_file.repo?os=${os}&dist=${dist}&source=script"
-    if [[ "$CENTOS_SEVEN" -eq '7' || "$CENTOS_SIX" -eq '6' ]]; then
-        curl -4sSf "${yum_repo_config_url}" > $yum_repo_path
-        # yum -q makecache -y --disablerepo='*' --enablerepo='varnishcache_varnish41'
-        if [ -f /etc/yum.repos.d/varnish-4.1.repo ]; then
-            rm -rf /etc/yum.repos.d/varnish-4.1.repo
-        fi
-        if [ -f /etc/yum.repos.d/varnish-4.1.OLD ]; then
-            rm -rf /etc/yum.repos.d/varnish-4.1.OLD
-        fi
-        yum -q -y update varnish-release
+    if [ -f /etc/yum.repos.d/varnish-4.1.OLD ]; then
+        rm -rf /etc/yum.repos.d/varnish-4.1.OLD
     fi
-    echo
-    echo "updated varnish cache 4.1 yum repo config"
+    if [ ! -f "$VARNISH_REPOFILE" ]; then
+      os=centos
+      if [[ "$CENTOS_SEVEN" -eq '7' ]]; then
+          dist=7
+      else
+          dist=6
+      fi
+      yum_repo_path=$VARNISH_REPOFILE
+      yum_repo_config_url="https://packagecloud.io/install/repositories/varnishcache/varnish41/config_file.repo?os=${os}&dist=${dist}&source=script"
+      if [[ "$CENTOS_SEVEN" -eq '7' || "$CENTOS_SIX" -eq '6' ]]; then
+          curl -4Is --connect-timeout 5 --max-time 5 "${yum_repo_config_url}" | grep 'HTTP\/' | grep '200' >/dev/null 2>&1
+          VARNISHFOUR_CURLCHECK=$?
+          if [[ "$VARNISHFOUR_CURLCHECK" = '0' ]]; then
+            echo "update varnish cache 4.1 yum repo config"
+            curl -4sSf "${yum_repo_config_url}" > $yum_repo_path
+            # yum -q makecache -y --disablerepo='*' --enablerepo='varnishcache_varnish41'
+            if [ -f /etc/yum.repos.d/varnish-4.1.repo ]; then
+                rm -rf /etc/yum.repos.d/varnish-4.1.repo
+            fi
+            if [ -f /etc/yum.repos.d/varnish-4.1.OLD ]; then
+                rm -rf /etc/yum.repos.d/varnish-4.1.OLD
+            fi
+            if [[ "$(rpm -ql varnish-release | grep -o 'not installed' >/dev/null 2>&1; echo $?)" -eq '1' ]]; then
+              yum -q -y update varnish-release
+            else
+              yum repolist varnishcache_varnish41
+            fi
+            echo
+            echo "updated varnish cache 4.1 yum repo config"
+          else
+            echo
+            echo "curl error: skip varnish cache 4.1 yum repo config"
+          fi
+      fi
+    fi
   fi
 }
 
@@ -454,19 +500,19 @@ ROF
   if [[ -f /etc/csf/csf.conf && -f /etc/sysconfig/network && "$(awk -F "=" '/NETWORKING_IPV6/ {print $2}' /etc/sysconfig/network | grep 'yes' >/dev/null 2>&1; echo $?)" = '0' ]] && [[ "$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6)" -eq '0' && "$(cat /proc/sys/net/ipv6/conf/default/disable_ipv6)" -eq '0' ]]; then
     # ensure CSF Firewall has IPV6 = '1' enabled if system has IPv6 networking configured
     sed -i "s|^IPV6 = .*|IPV6 = \"1\"|" /etc/csf/csf.conf
-    csf -r  > /dev/null 2>&1
+    csf -ra > /dev/null 2>&1
     NGINX_IPV='y'     # for nginx < 1.11.5 IPV6 support
   elif [[ -f /etc/csf/csf.conf && -f /etc/sysconfig/network && "$(awk -F "=" '/NETWORKING_IPV6/ {print $2}' /etc/sysconfig/network | grep 'yes' >/dev/null 2>&1; echo $?)" != '0' ]] && [[ "$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6)" -eq '1' && "$(cat /proc/sys/net/ipv6/conf/default/disable_ipv6)" -eq '1' ]]; then
     sed -i "s|^IPV6 = .*|IPV6 = \"0\"|" /etc/csf/csf.conf
-    csf -r  > /dev/null 2>&1
+    csf -ra > /dev/null 2>&1
   elif [[ "$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6)" -eq '0' && "$(cat /proc/sys/net/ipv6/conf/default/disable_ipv6)" -eq '0' ]]; then
     # ensure CSF Firewall has IPV6 = '1' enabled if system has IPv6 networking configured
     sed -i "s|^IPV6 = .*|IPV6 = \"1\"|" /etc/csf/csf.conf
-    csf -r  > /dev/null 2>&1
+    csf -ra > /dev/null 2>&1
     NGINX_IPV='y'     # for nginx < 1.11.5 IPV6 support
   elif [[ "$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6)" -eq '1' && "$(cat /proc/sys/net/ipv6/conf/default/disable_ipv6)" -eq '1' ]]; then
     sed -i "s|^IPV6 = .*|IPV6 = \"0\"|" /etc/csf/csf.conf
-    csf -r  > /dev/null 2>&1
+    csf -ra > /dev/null 2>&1
   fi
     # address centos 7.4+ rpcbind failure to start if IPv6 is disabled
     # https://community.centminmod.com/threads/13353/
@@ -510,6 +556,17 @@ fixwp_updater() {
   # https://community.centminmod.com/posts/44969/
   if [ -d /root/tools ]; then
     for f in $(find /root/tools/ -type f -name "wp_updater_*"); do grep -w 'pure-pw' $f && sed -i "/pure-pw/d" $f; done
+  fi
+}
+
+fixlshw_rpmforge() {
+  # prefer lshw from centos repo instead of rpmforge
+  if [[ -f /etc/yum.repos.d/rpmforge.repo && "$(grep '^exclude=' /etc/yum.repos.d/rpmforge.repo | grep lshw > /dev/null 2>&1; echo $?)" = '1' ]]; then
+    if [[ "$(grep '^exclude=' /etc/yum.repos.d/rpmforge.repo > /dev/null 2>&1; echo $?)" = '0' ]]; then
+    NEW_LSHWEXCLUDES=$(echo "$(grep '^exclude=' /etc/yum.repos.d/rpmforge.repo) lshw")
+    sed -i "s|^exclude=.*|$NEW_LSHWEXCLUDES|" /etc/yum.repos.d/rpmforge.repo
+    # yum -y swap -- remove lshw -- install lshw --disablerepo=rpmforge
+    fi
   fi
 }
 
@@ -1389,7 +1446,7 @@ csf_distftp() {
     fi
     if [[ ! "$(grep 'LF_DISTFTP_UNIQ = \"40\"' /etc/csf/csf.conf)" ]]; then
       sed -i 's/LF_DISTFTP_UNIQ = .*/LF_DISTFTP_UNIQ = \"40\"/g' /etc/csf/csf.conf
-      csf -r >/dev/null 2>&1
+      csf -ra >/dev/null 2>&1
     fi
   fi
 }
@@ -1427,7 +1484,7 @@ pureftpdupdates() {
 		CHECKCSF_PASSIVEPORTS=$(grep '3000:3050' /etc/csf/csf.conf)
 		if [ "$CHECKCSF_PASSIVEPORTS" ]; then
 			sed -i 's/3000:3050/30001:50011/' /etc/csf/csf.conf
-			csf -r >/dev/null 2>&1
+			csf -ra >/dev/null 2>&1
 			echo
 			echo "adjusting pure-ftpd passive port range for CSF Firewall"
 			echo
@@ -1719,7 +1776,7 @@ ovhkernelcheck() {
 		# Intel Xeon D-15xx Broadwell-DE processors which need
 		# OVH custom kernel for the newer Intel network NIC support
 		# Intel Corporation Ethernet Connection X552/X557-AT 10GBASE-T
-		OVHASNCHECK=$(curl -4s${CURL_TIMEOUTS} ipinfo.io/org | grep -o 'OVH' >/dev/null 2>&1; echo $?)
+		OVHASNCHECK=$(curl -4s${CURL_TIMEOUTS} https://ipinfo.io/org | grep -o 'OVH' >/dev/null 2>&1; echo $?)
 		OVHKERNEL_CHECK=$(uname -r | grep '\-grs' >/dev/null 2>&1; echo $?)
 		BROADWELLDE_CHECK=$(grep 'Xeon(R) CPU D-15' /proc/cpuinfo >/dev/null 2>&1; echo $?)
 		# more sure way to check for OVH custom kernel if /root/.ovhrc file exists
@@ -1863,6 +1920,7 @@ net.netfilter.nf_conntrack_generic_timeout = 60
 net.ipv4.tcp_challenge_ack_limit = 999999999
 net.ipv4.tcp_mtu_probing = 1
 net.ipv4.tcp_base_mss = 1024
+net.unix.max_dgram_qlen = 4096
 EOF
         /sbin/sysctl --system >/dev/null 2>&1
             fi           
@@ -1914,6 +1972,11 @@ if [[ ! -f /proc/user_beancounters ]]; then
   if [[ "$CENTOS_SEVEN" = '7' && -f /etc/sysctl.d/101-sysctl.conf ]]; then
     if [[ -z "$(grep 'tcp_challenge_ack_limit' /etc/sysctl.d/101-sysctl.conf)" ]]; then
       echo "net.ipv4.tcp_challenge_ack_limit = 999999999" >> /etc/sysctl.d/101-sysctl.conf
+      /sbin/sysctl --system >/dev/null 2>&1
+    fi
+    # raise centos 7 default net.unix.max_dgram_qlen from 512 to 4096
+    if [[ -z "$(grep 'net.unix.max_dgram_qlen' /etc/sysctl.d/101-sysctl.conf)" ]]; then
+      echo "net.unix.max_dgram_qlen = 4096" >> /etc/sysctl.d/101-sysctl.conf
       /sbin/sysctl --system >/dev/null 2>&1
     fi
   fi
@@ -2007,14 +2070,19 @@ imagick_fixes() {
 }
 
 apache_protect() {
-	if [[ -z "$(crontab -l 2>&1 | grep '\/usr\/local\/src\/centminmod\/tools\/autoprotect.sh')" && -f "/usr/local/src/centminmod/tools/autoprotect.sh" ]]; then
-    	crontab -l > cronjoblist
+  if [[ -z "$(crontab -l 2>&1 | grep '\/usr\/local\/src\/centminmod\/tools\/autoprotect.sh')" && -f "/usr/local/src/centminmod/tools/autoprotect.sh" ]]; then
+      crontab -l > cronjoblist
       sed -i '/autoprotect.sh/d' cronjoblist
-    	echo "11 */23 * * * /usr/local/src/centminmod/tools/autoprotect.sh 2>/dev/null" >> cronjoblist
-    	crontab cronjoblist
-    	rm -rf cronjoblist
-    	crontab -l
-	fi
+      echo "13 23 * * * /usr/local/src/centminmod/tools/autoprotect.sh >/dev/null 2>&1" >> cronjoblist
+      crontab cronjoblist
+      rm -rf cronjoblist
+  elif [[ "$(crontab -l | grep -q '11 \*\/23'; echo $?)" -eq '0' && -f "/usr/local/src/centminmod/tools/autoprotect.sh" ]]; then
+      crontab -l > cronjoblist
+      sed -i '/autoprotect.sh/d' cronjoblist
+      echo "13 23 * * * /usr/local/src/centminmod/tools/autoprotect.sh >/dev/null 2>&1" >> cronjoblist
+      crontab cronjoblist
+      rm -rf cronjoblist 
+  fi
 }
 
 centossix_crsetup() {
@@ -2216,6 +2284,7 @@ if [[ "$INITIALINSTALL" != [yY] ]]; then
   fixnodejs_epel
   fixnginx_epel
   fixsclutils_epel
+  fixlshw_rpmforge
   #fixclamav_epel
   nano_highlight
   checkwoff
@@ -2235,6 +2304,10 @@ if [[ "$INITIALINSTALL" != [yY] ]]; then
   # pip_updates
   ngx_gzipbuffersfix
   ngx_brotlibuffersfix
+  ngxmaster_openfiles
+  check_memcachedflush
+  csf_smtpports
+  disable_varnishrepo
 fi
 
 }

@@ -12,7 +12,9 @@ export LC_CTYPE=en_US.UTF-8
 # exit
 
 if [ -f "${CM_INSTALLDIR}/inc/custom_config.inc" ]; then
-    dos2unix "inc/custom_config.inc"
+  if [ -f /usr/bin/dos2unix ]; then
+    dos2unix -q "inc/custom_config.inc"
+  fi
     source "inc/custom_config.inc"
     if [ -d "${CENTMINLOGDIR}" ]; then
         cat "inc/custom_config.inc" > "${CENTMINLOGDIR}/inc-custom-config-settings_${DT}.log"
@@ -21,7 +23,9 @@ fi
 
 if [ -f "${CONFIGSCANBASE}/custom_config.inc" ]; then
     # default is at /etc/centminmod/custom_config.inc
+  if [ -f /usr/bin/dos2unix ]; then
     dos2unix -q "${CONFIGSCANBASE}/custom_config.inc"
+  fi
     source "${CONFIGSCANBASE}/custom_config.inc"
     if [ -d "${CENTMINLOGDIR}" ]; then
         cat "${CONFIGSCANBASE}/custom_config.inc" > "${CENTMINLOGDIR}/etc-centminmod-custom-config-settings_${DT}.log"
@@ -29,7 +33,9 @@ if [ -f "${CONFIGSCANBASE}/custom_config.inc" ]; then
 fi
 
 if [ -f "${CM_INSTALLDIR}/inc/z_custom.inc" ]; then
+  if [ -f /usr/bin/dos2unix ]; then
     dos2unix -q "${CM_INSTALLDIR}/inc/z_custom.inc"
+  fi
     source "${CM_INSTALLDIR}/inc/z_custom.inc"
     if [ -d "${CENTMINLOGDIR}" ]; then
         cat "${CM_INSTALLDIR}/inc/z_custom.inc" > "${CENTMINLOGDIR}/inc-zcustom-config-settings_${DT}.log"
@@ -293,19 +299,33 @@ fi
 # https://github.com/jedisct1/libsodium
 # disable temporarily for php 7.2.0 due to libzip compile errors
 # https://gist.github.com/centminmod/d1b48ef88bda29a7e352b90fd7111ac1
-if [[ "$PHPMVER" = 7.3 || "$PHPMUVER" = 7.3 ]]; then
+if [[ "$PHP_LIBZIP" = [yY] ]] && [[ "$PHPMVER" = 7.2 || "$PHPMUVER" = 7.2 ]]; then
   ARGONTWO_OPT=' --with-password-argon2'
   LIBSODIUM_OPT=' --with-sodium'
   LIBZIP_OPT=' --with-libzip'
-  if [[ ! -f /usr/include/zip.h ]]; then
-    time $YUMDNFBIN${CACHESKIP} -q -y install libzip5 libzip5-devel --enablerepo=remi
+  # if [[ ! -f /usr/include/zip.h ]]; then
+  #   time $YUMDNFBIN${CACHESKIP} -q -y install libzip5 libzip5-devel --enablerepo=remi
+  # fi
+  if [[ ! -f /usr/local/include/zip.h ]]; then
+    libzip_install
   fi
   # if [[ ! -f /usr/bin/zipcmp || ! -f /usr/include/zip.h ]]; then
   #   time $YUMDNFBIN${CACHESKIP} -q -y install libzip libzip-devel
   # fi
   if [ ! -f /usr/local/lib/libsodium.so ]; then
     pushd "$DIR_TMP"
-    wget -c4 "https://github.com/jedisct1/libsodium/releases/download/${LIBSODIUM_VER}/libsodium-${LIBSODIUM_VER}.tar.gz" --tries=3
+    if [ -s "libsodium-${LIBSODIUM_VER}.tar.gz" ]; then
+        cecho "libsodium-${LIBSODIUM_VER}.tar.gz found, skipping download..." $boldgreen
+    else
+        echo "wget -c4 "https://github.com/jedisct1/libsodium/releases/download/${LIBSODIUM_VER}/libsodium-${LIBSODIUM_VER}.tar.gz" --tries=3"
+        wget -c4 "https://github.com/jedisct1/libsodium/releases/download/${LIBSODIUM_VER}/libsodium-${LIBSODIUM_VER}.tar.gz" --tries=3
+        ERROR=$?
+        if [[ "$ERROR" != '0' ]]; then
+            cecho "Error: libsodium-${LIBSODIUM_VER}.tar.gz download failed." $boldgreen
+        else 
+            cecho "Download done." $boldyellow
+        fi
+    fi
     tar xzf libsodium-${LIBSODIUM_VER}.tar.gz
     cd libsodium-${LIBSODIUM_VER}
     make clean
@@ -320,7 +340,18 @@ if [[ "$PHPMVER" = 7.3 || "$PHPMUVER" = 7.3 ]]; then
   fi
   if [ ! -f /usr/local/lib/libargon2.so ]; then
     pushd "$DIR_TMP"
-    wget -c4 "https://github.com/P-H-C/phc-winner-argon2/archive/${LIBARGON_VER}.tar.gz" --tries=3
+    if [ -s "${LIBARGON_VER}.tar.gz" ]; then
+        cecho "${LIBARGON_VER}.tar.gz found, skipping download..." $boldgreen
+    else
+        echo "wget -c4 "https://github.com/P-H-C/phc-winner-argon2/archive/${LIBARGON_VER}.tar.gz" --tries=3"
+        wget -c4 "https://github.com/P-H-C/phc-winner-argon2/archive/${LIBARGON_VER}.tar.gz" --tries=3
+        ERROR=$?
+        if [[ "$ERROR" != '0' ]]; then
+            cecho "Error: ${LIBARGON_VER}.tar.gz download failed." $boldgreen
+        else 
+            cecho "Download done." $boldyellow
+        fi
+    fi
     tar xzf ${LIBARGON_VER}.tar.gz
     cd phc-winner-argon2-${LIBARGON_VER}
     make clean
@@ -329,7 +360,7 @@ if [[ "$PHPMVER" = 7.3 || "$PHPMUVER" = 7.3 ]]; then
     popd
   fi
   # if libzip, libsodium or libargon2 libraries still don't exit, disable from php configuration
-  if [[ ! -f /usr/local/lib/libargon2.so || ! -f /usr/local/lib/libsodium.so || ! -f /usr/include/zip.h ]]; then
+  if [[ ! -f /usr/local/lib/libargon2.so || ! -f /usr/local/lib/libsodium.so || ! -f /usr/local/include/zip.h ]]; then
     echo
     echo "disbable libzip, libsodium or libargon2 libraries"
     echo

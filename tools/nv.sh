@@ -15,7 +15,7 @@ DIR_TMP=/svr-setup
 CONFIGSCANBASE='/etc/centminmod'
 OPENSSL_VERSION=$(awk -F "'" /'^OPENSSL_VERSION/ {print $2}' $CUR_DIR/centmin.sh)
 # CURRENTIP=$(echo $SSH_CLIENT | awk '{print $1}')
-# CURRENTCOUNTRY=$(curl -4s${CURL_TIMEOUTS} ipinfo.io/$CURRENTIP/country)
+# CURRENTCOUNTRY=$(curl -4s${CURL_TIMEOUTS} https://ipinfo.io/$CURRENTIP/country)
 SCRIPT_DIR=$(readlink -f $(dirname ${BASH_SOURCE[0]}))
 LOGPATH="${CENTMINLOGDIR}/centminmod_${DT}_nginx_addvhost_nv.log"
 USE_NGINXMAINEXTLOGFORMAT='n'
@@ -78,17 +78,24 @@ if [ ! -d "$CENTMINLOGDIR" ]; then
 fi
 
 if [ -f "${CUR_DIR}/inc/custom_config.inc" ]; then
-    dos2unix "inc/custom_config.inc"
+  if [ -f /usr/bin/dos2unix ]; then
+    dos2unix -q "inc/custom_config.inc"
+  fi
     source "inc/custom_config.inc"
 fi
 
 if [ -f "${CONFIGSCANBASE}/custom_config.inc" ]; then
     # default is at /etc/centminmod/custom_config.inc
+  if [ -f /usr/bin/dos2unix ]; then
     dos2unix -q "${CONFIGSCANBASE}/custom_config.inc"
+  fi
     source "${CONFIGSCANBASE}/custom_config.inc"
 fi
 
 if [ -f "${CUR_DIR}/inc/z_custom.inc" ]; then
+  if [ -f /usr/bin/dos2unix ]; then
+    dos2unix -q "${CUR_DIR}/inc/z_custom.inc"
+  fi
     source "${CUR_DIR}/inc/z_custom.inc"
 fi
 
@@ -1352,6 +1359,7 @@ cecho " rm -rf /usr/local/nginx/conf/ssl/${vhostname}" $boldwhite
 cecho " rm -rf /home/nginx/domains/$vhostname" $boldwhite
 cecho " rm -rf /root/.acme.sh/$vhostname" $boldwhite
 cecho " rm -rf /root/.acme.sh/${vhostname}_ecc" $boldwhite
+cecho " rm -rf /usr/local/nginx/conf/pre-staticfiles-local-${vhostname}.conf" $boldwhite
 cecho " service nginx restart" $boldwhite
 echo ""
 cecho "-------------------------------------------------------------" $boldyellow

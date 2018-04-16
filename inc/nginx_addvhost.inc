@@ -290,7 +290,7 @@ PUREGROUP=nginx
       CNIP=$(ip route get 8.8.8.8 | awk 'NR==1 {print $NF}')
     fi
 # CURRENTIP=$(echo $SSH_CLIENT | awk '{print $1}')
-# CURRENTCOUNTRY=$(curl -s ipinfo.io/$CURRENTIP/country)
+# CURRENTCOUNTRY=$(curl -s https://ipinfo.io/$CURRENTIP/country)
 pureftpinstall
 
 # Support secondary dedicated IP configuration for centmin mod
@@ -1042,6 +1042,7 @@ cecho " rm -rf /usr/local/nginx/conf/ssl/${vhostname}" $boldwhite
 cecho " rm -rf /home/nginx/domains/$vhostname" $boldwhite
 cecho " rm -rf /root/.acme.sh/$vhostname" $boldwhite
 cecho " rm -rf /root/.acme.sh/${vhostname}_ecc" $boldwhite
+cecho " rm -rf /usr/local/nginx/conf/pre-staticfiles-local-${vhostname}.conf" $boldwhite
 cecho " service nginx restart" $boldwhite
 cecho "-------------------------------------------------------------" $boldyellow
 cecho "vhost for $vhostname setup successfully" $boldwhite

@@ -18,9 +18,6 @@ CPUSPEED=$(awk -F: '/cpu MHz/{print $2}' /proc/cpuinfo | sort | uniq -c)
 CPUMODEL=$(awk -F: '/model name/{print $2}' /proc/cpuinfo | sort | uniq -c)
 CPUCACHE=$(awk -F: '/cache size/{print $2}' /proc/cpuinfo | sort | uniq -c)
 
-VHOSTS=$(ls /home/nginx/domains | egrep -v 'demodomain.com.conf')
-VHOSTSCONF=$(ls /usr/local/nginx/conf/conf.d | egrep -vw '^ssl.conf' | uniq)
-
 CENTOSVER=$(awk '{ print $3 }' /etc/redhat-release)
 
 if [ "$CENTOSVER" == 'release' ]; then
@@ -62,41 +59,6 @@ else
 fi
 
 #####################################################
-SYSTYPE=$(virt-what | tail -1)
-CENTMINMOD_INFOVER=$(head -n1 /etc/centminmod-release)
-CCACHE_INFOVER=$(ccache -V | head -n1)
-NGINX_INFOVER=$(nginx -v 2>&1 | awk -F "/" '{print $2}' | head -n1)
-PHP_INFOVER=$(php -v 2>&1 | head -n1 | cut -d "(" -f1 | awk '{print $2}')
-MARIADB_INFOVER=$(rpm -qa | grep -i MariaDB-server | head -n1 | cut -d '-' -f3)
-MEMCACHEDSERVER_INFOVER=$(/usr/local/bin/memcached -h | head -n1 | awk '{print $2}')
-CSF_INFOVER=$(csf -v | head -n1 | awk '{print $2}')
-SIEGE_INFOVER=$(siege -V 2>&1 | head -n1 | awk '{print $2}')
-APC_INFOVER=$(php --ri apc | awk '/Version/ {print $3}' | head -n1)
-OPCACHE_INFOVER=$(php -v 2>&1 | grep OPcache | awk '{print $4}' | sed 's/,//')
-
-if [[ "$(which nsd >/dev/null 2>&1; echo $?)" -eq '0' ]]; then
-  NSD_INFOVER=$(nsd -v 2>&1 | head -n1 | awk '{print $3}')
-else
-  NSD_INFOVER=" - "
-fi
-
-# only assign variables if mysql is running
-if [[ "$(ps -o comm -C mysqld >/dev/null 2>&1; echo $?)" = '0' ]]; then
-DATABSELIST=$(mysql $MYSQLADMINOPT -e 'show databases;' | grep -Ev '(Database|information_schema|performance_schema)')
-MYSQLUPTIME=$(mysqladmin $MYSQLADMINOPT ext | awk '/Uptime|Uptime_since_flush_status/ { print $4 }' | head -n1)
-MYSQLUPTIMEFORMAT=$(mysqladmin $MYSQLADMINOPT ver | awk '/Uptime/ { print $2, $3, $4, $5, $6, $7, $8, $9 }')
-MYSQLSTART=$(mysql $MYSQLADMINOPT -e "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP() - variable_value) AS server_start FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE variable_name='Uptime';" | egrep -Ev '+--|server_start')
-fi
-PAGESPEEDSTATUS=$(grep 'pagespeed off' /usr/local/nginx/conf/pagespeed.conf)
-
-if [ -f /usr/local/sbin/maldet ]; then
-    MALDET_INFOVER=$(/usr/local/sbin/maldet -v | head -n1 | awk '{print $4}')
-fi
-
-if [ -f /usr/bin/clamscan ]; then
-    CLAMAV_INFOVER=$(clamscan -V | head -n1 | awk -F "/" '{print $1}' | awk '{print $2}')
-fi
-#####################################################
 if [[ -z "$SYSTYPE" ]]; then
     SYSTYPE='not virtualized'
 fi
@@ -121,10 +83,101 @@ CPUCORES=$((${CPUCORES} * ${PHYSICALCPUS}));
     else HT=no; 
 fi
 #####################################################
+netstat_info() {
+    sshclient=$(echo $SSH_CLIENT | awk '{print $1}')
+    nic=$(ifconfig -s 2>&1 | egrep -v '^Iface|^lo|^gre' | awk '{print $1}')
+    bandwidth_avg=$(sar -n DEV 1 1)
+    bandwidth_inout=$(echo "$nic" | while read i; do echo "$bandwidth_avg" | grep 'Average:' | awk -v tnic="$i" '$0~tnic{print tnic, "In: ",$5,"Out:",$6}'; done | column -t)
+    packets_inout=$(echo "$nic" | while read i; do echo "$bandwidth_avg" | grep 'Average:' | awk -v tnic="$i" '$0~tnic{print tnic, "In: ",$3,"Out:",$3}'; done | column -t)
+    netstat_http=$(netstat -an | fgrep ':80 ')
+    netstat_https=$(netstat -an | fgrep ':443 ')
+    netstat_outbound=$(netstat -plant | egrep -v 'and|servers|Address' | awk '{print $5,$6,$7}' | grep -v ':\*' | grep -v '127.0.0.1' | sed -e "s|$sshclient|ssh-client-ip|g" | sort | uniq -c | sort -rn | head -n10 | column -t)
+    netstat_ips=$(netstat -tn)
+    netstat_ipstop=$(echo "$netstat_ips" | egrep -v 'servers|Address' | awk '{print $5}' | rev | cut -d: -f2- | rev | sort | uniq -c | sort -rn | head -n10)
+    netstat_ipstopf=$(echo "$netstat_ipstop" | awk '{"getent hosts " $2 | getline getent_hosts_str; split(getent_hosts_str, getent_hosts_arr, " "); print $1, $2, getent_hosts_arr[2], $3}' | sed -e "s|$sshclient|ssh-client-ip|g" | column -t)
+    tt_states_http=$(echo "$netstat_http" | awk '{print $6}' | sort | uniq -c | sort -n)
+    tt_states_https=$(echo "$netstat_https" | awk '{print $6}' | sort | uniq -c | sort -n)
+    uniq_states_http=$(echo "$netstat_http" | fgrep -v "0.0.0.0" | awk '{print $6}' | sort | uniq -c | sort -n)
+    uniq_states_https=$(echo "$netstat_https" | fgrep -v "0.0.0.0" | awk '{print $6}' | sort | uniq -c | sort -n)
+    ttconn_http=$(echo "$tt_states_http" | awk '{sum += $1} END {print sum;}')
+    ttconn_https=$(echo "$tt_states_https" | awk '{sum += $1} END {print sum;}')
+    uniqconn_http=$(echo "$uniq_states_http" | awk '{sum += $1} END {print sum;}')
+    uniqconn_https=$(echo "$uniq_states_https" | awk '{sum += $1} END {print sum;}')
+    econn_http=$(echo "$tt_states_http" | awk '/ESTABLISHED/ {print $1}')
+    econn_https=$(echo "$tt_states_https" | awk '/ESTABLISHED/ {print $1}')
+    wconn_http=$(echo "$tt_states_http" | awk '/TIME_WAIT/ {print $1}')
+    wconn_https=$(echo "$tt_states_https" | awk '/TIME_WAIT/ {print $1}')
+    
+    echo "------------------------------------------------------------------"
+    echo " Centmin Mod Netstat Info:"
+    echo "------------------------------------------------------------------"
+    echo -e "\nNetwork Bandwidth In/Out (KB/s):"
+    echo "$bandwidth_inout"
+    echo -e "\nNetwork Packets   In/Out (pps):"
+    echo "$packets_inout"
+    echo -e "\nTotal Connections For:"
+    echo "Port 80:   $ttconn_http"
+    echo "Port 443:  $ttconn_http"
+    echo -e "\nUnique IP Connections For:"
+    echo "Port 80:   $uniqconn_http"
+    echo "Port 443:  $uniqconn_http"
+    echo -e "\nEstablished Connections For:"
+    echo "Port 80:   ${econn_http:-0}"
+    echo "Port 443:  ${econn_https:-0}"
+    echo -e "\nTIME_WAIT Connections For:"
+    echo "Port 80:   ${wconn_http:-0}"
+    echo "Port 443:  ${wconn_https:-0}"
+    echo -e "\nTop IP Address Connections:"
+    echo "$netstat_ipstopf"
+    echo -e "\nTop Outbound Connections:"
+    echo "$netstat_outbound"
+
+    if [ -f /etc/csf/csf.deny ]; then
+        echo -e "\nTop CSF Firewall Denied Country Codes:"
+        csfdeny_country=$(grep -oP '(?<=\()[^\)]+' /etc/csf/csf.deny | awk -F "/" 'length($1)<=2 {print $1}' | sort | uniq -c | sort -rn | head -n10 | column -t)
+        echo "$csfdeny_country"
+
+        echo -e "\nTop CSF Firewall Denied Country Codes + Reverse Lookups:"
+        csfdeny_iplookups=$(grep -oP '(?<=\()[^\)]+' /etc/csf/csf.deny | grep -wv sshd | awk -F "/" 'length($1)<=2 {print $1,$2,$3}' | sort | uniq -c | sort -rn | head -n10 | column -t)
+        echo "$csfdeny_iplookups"
+
+        echo -e "\nTop CSF Firewall Denied Distributed sshd Attacks:"
+        csfdeny_sshdlookups=$(grep 'distributed sshd attacks' /etc/csf/csf.deny | grep -oP '(?<=\()[^\)]+' | awk -F "/" 'length($1)<=2 {print $1,$2,$3}' | sort | uniq -c | sort -rn | head -n10 | column -t)
+        echo "$csfdeny_sshdlookups"
+
+        echo -e "\nTop CSF Firewall Denied Distributed sshd Attacks Target Usernames:"
+        csfdeny_attackusernames=$(grep 'distributed sshd attacks' /etc/csf/csf.deny | grep -oP '(?<=\[)[^\]]+' | sort | uniq -c | sort -rn | head -n10 | column -t)
+        echo "$csfdeny_attackusernames"
+
+        echo -e "\nTop CSF Firewall Failed SSH Logins:"
+        csfdeny_sshlogins=$(grep 'Failed SSH login from' /etc/csf/csf.deny | grep -oP '(?<=\()[^\)]+' | awk -F "/" 'length($1)<=2 {print $1,$2,$3}' | sort | uniq -c | sort -rn | head -n10 | column -t)
+        echo "$csfdeny_sshlogins"
+
+        echo -e "\nLast 24hrs Top CSF Firewall Denied Country Codes:"
+        csfdeny_country=$(grep "$(date -d "1 day ago"  +"%a %b  %-d")" /etc/csf/csf.deny | grep -oP '(?<=\()[^\)]+' | awk -F "/" 'length($1)<=2 {print $1}' | sort | uniq -c | sort -rn | head -n10 | column -t)
+        echo "$csfdeny_country"
+
+        echo -e "\nLast 24hrs Top CSF Firewall Denied Country Codes + Reverse Lookups:"
+        csfdeny_iplookups=$(grep "$(date -d "1 day ago"  +"%a %b  %-d")" /etc/csf/csf.deny | grep -oP '(?<=\()[^\)]+' | grep -wv sshd | awk -F "/" 'length($1)<=2 {print $1,$2,$3}' | sort | uniq -c | sort -rn | head -n10 | column -t)
+        echo "$csfdeny_iplookups"
+
+        echo -e "\nLast 24hrs Top CSF Firewall Denied Distributed sshd Attacks:"
+        csfdeny_sshdlookups=$(grep 'distributed sshd attacks' /etc/csf/csf.deny | grep "$(date -d "1 day ago"  +"%a %b  %-d")" | grep -oP '(?<=\()[^\)]+' | awk -F "/" 'length($1)<=2 {print $1,$2,$3}' | sort | uniq -c | sort -rn | head -n10 | column -t)
+        echo "$csfdeny_sshdlookups"
+
+        echo -e "\nLast 24hrs Top CSF Firewall Failed SSH Logins:"
+        csfdeny_sshlogins=$(grep 'Failed SSH login from' /etc/csf/csf.deny | grep "$(date -d "1 day ago"  +"%a %b  %-d")" | grep -oP '(?<=\()[^\)]+' | awk -F "/" 'length($1)<=2 {print $1,$2,$3}' | sort | uniq -c | sort -rn | head -n10 | column -t)
+        echo "$csfdeny_sshlogins"
+
+        # STARTD=$(date -d "1440 mins ago"  +"%a %b  %-d %H:%M")
+        # ENDD=$(date +"%a %b  %-d %H:%M")
+    fi
+}
+
 list_logs() {
     echo
     echo "List all /root/centminlogs in data ascending order"
-    ls -lahrt /root/centminlogs
+    ls -lhrt /root/centminlogs
 }
 
 setupdate() {
@@ -173,13 +226,52 @@ if [[ -z "$(crontab -l 2>&1 | grep cminfo_updater)" ]]; then
 fi
 
 infooutput() {
+VHOSTS=$(ls /home/nginx/domains | egrep -v 'demodomain.com.conf')
+VHOSTSCONF=$(ls /usr/local/nginx/conf/conf.d | egrep -vw '^ssl.conf' | uniq)
+
+#####################################################
+SYSTYPE=$(virt-what | tail -1)
+CENTMINMOD_INFOVER=$(head -n1 /etc/centminmod-release)
+CCACHE_INFOVER=$(ccache -V | head -n1)
+NGINX_INFOVER=$(nginx -v 2>&1 | awk -F "/" '{print $2}' | head -n1)
+PHP_INFOVER=$(php -v 2>&1 | head -n1 | cut -d "(" -f1 | awk '{print $2}')
+MARIADB_INFOVER=$(rpm -qa | grep -i MariaDB-server | head -n1 | cut -d '-' -f3)
+MEMCACHEDSERVER_INFOVER=$(/usr/local/bin/memcached -h | head -n1 | awk '{print $2}')
+CSF_INFOVER=$(csf -v | head -n1 | awk '{print $2}')
+SIEGE_INFOVER=$(siege -V 2>&1 | head -n1 | awk '{print $2}')
+APC_INFOVER=$(php --ri apc | awk '/Version/ {print $3}' | head -n1)
+OPCACHE_INFOVER=$(php -v 2>&1 | grep OPcache | awk '{print $4}' | sed 's/,//')
+
+if [[ "$(which nsd >/dev/null 2>&1; echo $?)" -eq '0' ]]; then
+  NSD_INFOVER=$(nsd -v 2>&1 | head -n1 | awk '{print $3}')
+else
+  NSD_INFOVER=" - "
+fi
+
+# only assign variables if mysql is running
+if [[ "$(ps -o comm -C mysqld >/dev/null 2>&1; echo $?)" = '0' ]]; then
+DATABSELIST=$(mysql $MYSQLADMINOPT -e 'show databases;' | grep -Ev '(Database|information_schema|performance_schema)')
+MYSQLUPTIME=$(mysqladmin $MYSQLADMINOPT ext | awk '/Uptime|Uptime_since_flush_status/ { print $4 }' | head -n1)
+MYSQLUPTIMEFORMAT=$(mysqladmin $MYSQLADMINOPT ver | awk '/Uptime/ { print $2, $3, $4, $5, $6, $7, $8, $9 }')
+MYSQLSTART=$(mysql $MYSQLADMINOPT -e "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP() - variable_value) AS server_start FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE variable_name='Uptime';" | egrep -Ev '+--|server_start')
+fi
+PAGESPEEDSTATUS=$(grep 'pagespeed off' /usr/local/nginx/conf/pagespeed.conf)
+
+if [ -f /usr/local/sbin/maldet ]; then
+    MALDET_INFOVER=$(/usr/local/sbin/maldet -v | head -n1 | awk '{print $4}')
+fi
+
+if [ -f /usr/bin/clamscan ]; then
+    CLAMAV_INFOVER=$(clamscan -V | head -n1 | awk -F "/" '{print $1}' | awk '{print $2}')
+fi
+
 echo "------------------------------------------------------------------"
 echo " Centmin Mod Quick Info:"
 echo "------------------------------------------------------------------"
 
 echo "Server Location Info"
 # echo
-curl -4s${CURL_TIMEOUTS} ipinfo.io/geo 2>&1 | sed -e 's|[{}]||' -e 's/\(^"\|"\)//g' -e 's|,||' | egrep -v 'phone|postal|loc'
+curl -4s${CURL_TIMEOUTS} https://ipinfo.io/geo 2>&1 | sed -e 's|[{}]||' -e 's/\(^"\|"\)//g' -e 's|,||' | egrep -v 'phone|postal|loc'
 
 echo
 echo "Processors" "physical = ${PHYSICALCPUS}, cores = ${CPUCORES}, virtual = ${VIRTUALCORES}, hyperthreading = ${HT}"
@@ -341,7 +433,36 @@ php -m
 
 echo
 }
+
+debug_menuexit() {
+    echo
+    echo "------------------------------------------------------------------"
+    echo "Debugging centmin.sh menu option 24 exit routine starting"
+    echo "Please wait until complete..."
+    echo "------------------------------------------------------------------"
+    cd /usr/local/src/centminmod
+    echo 24 | bash -x centmin.sh 2>&1 | awk '{ print strftime("%Y-%m-%d %H:%M:%S"), $0; fflush(); }' 2>&1 > /root/centminlogs/debug-menuexit.txt && echo "Full debug log saved at /root/centminlogs/debug-menuexit.txt"
+    sed -i "s|$(hostname)|hostname|g" /root/centminlogs/debug-menuexit.txt
+    echo
+    echo "Inspect Yum Check Times In debug-menuexit.txt log"
+    echo
+    grep -A5 'checking for YUM updates' /root/centminlogs/debug-menuexit.txt
+    yumstart_time="$(date -d "$(awk '/+ echo \x27 checking for YUM updates/ {print $1,$2}' /root/centminlogs/debug-menuexit.txt)" +%s)"
+    yumend_time="$(date -d "$(awk '/ UPDATE_CHECK=/ {print $1,$2}' /root/centminlogs/debug-menuexit.txt)" +%s)"
+    yumcheck_time=$(echo "$yumend_time - $yumstart_time" | bc)
+    yumcheck_time=$(printf "%0.2f\n" $yumcheck_time)
+    echo
+    echo "Yum Check Duration: $yumcheck_time seconds"
+    echo
+    echo "------------------------------------------------------------------"
+    echo "Debugging centmin.sh menu option 24 exit routine completed"
+    echo "------------------------------------------------------------------"
+}
 #########
+if [[ -z "$1" ]]; then
+    infooutput
+fi
+
 case "$1" in
     info)
     infooutput
@@ -349,10 +470,16 @@ case "$1" in
     update)
     setupdate
         ;;
+    netstat)
+    netstat_info
+        ;;
     listlogs)
     list_logs
         ;;
+    debug-menuexit)
+    debug_menuexit
+        ;;
     *)
-    infooutput
+    echo "$0 {info|update|netstat|listlogs|debug-menuexit}"
         ;;
 esac

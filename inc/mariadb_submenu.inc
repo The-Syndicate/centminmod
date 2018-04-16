@@ -6,6 +6,10 @@ ENABLE_MARIADBTENTWOUPGRADE='n'
 SKIP_INNODBFASTSHUTDOWNDISABLE='y'   # no longer needed as of MariaDB 10.2.5 https://mariadb.com/kb/en/library/upgrading-from-mariadb-101-to-mariadb-102/
 
 mariadbsubmenu() {
+  if [ -f /etc/my.cnf ]; then
+    DT=$(date +"%d%m%y-%H%M%S")
+    cp -a /etc/my.cnf "/etc/my.cnf-menu11-autobackup-$DT"
+  fi
 
 while :
 do
@@ -125,7 +129,10 @@ fi
 
 ;;
 1)
-
+  if [ -f /etc/my.cnf ]; then
+    DT=$(date +"%d%m%y-%H%M%S")
+    cp -a /etc/my.cnf "/etc/my.cnf-menu11-submenu1-autobackup-$DT"
+  fi
 centminlog
 {
 MARIADBVERCHECK=`rpm -qa | grep MariaDB-server | awk -F "-" '{print $3}' | cut -c1-3`
@@ -149,7 +156,10 @@ fi
 
 ;;
 2)
-
+  if [ -f /etc/my.cnf ]; then
+    DT=$(date +"%d%m%y-%H%M%S")
+    cp -a /etc/my.cnf "/etc/my.cnf-menu11-submenu2-autobackup-$DT"
+  fi
 centminlog
 {
 MARIADBVERCHECK=`rpm -qa | grep MariaDB-server | awk -F "-" '{print $3}' | cut -c1-3`
@@ -176,7 +186,10 @@ fi
 
 ;;
 3)
-
+  if [ -f /etc/my.cnf ]; then
+    DT=$(date +"%d%m%y-%H%M%S")
+    cp -a /etc/my.cnf "/etc/my.cnf-menu11-submenu3-autobackup-$DT"
+  fi
 centminlog
 {
 MARIADBVERCHECK=`rpm -qa | grep MariaDB-server | awk -F "-" '{print $3}' | cut -c1-4`
@@ -197,7 +210,10 @@ MARIADBVERCHECK=`rpm -qa | grep MariaDB-server | awk -F "-" '{print $3}' | cut -
 } 2>&1 | tee ${CENTMINLOGDIR}/centminmod_${SCRIPT_VERSION}_${DT}_mariadb10_upgrade.log
 ;;
 4)
-
+  if [ -f /etc/my.cnf ]; then
+    DT=$(date +"%d%m%y-%H%M%S")
+    cp -a /etc/my.cnf "/etc/my.cnf-menu11-submenu4-autobackup-$DT"
+  fi
 centminlog
 {
 MARIADBVERCHECK=`rpm -qa | grep MariaDB-server | awk -F "-" '{print $3}' | cut -c1-4`
@@ -218,7 +234,10 @@ MARIADBVERCHECK=`rpm -qa | grep MariaDB-server | awk -F "-" '{print $3}' | cut -
 } 2>&1 | tee ${CENTMINLOGDIR}/centminmod_${SCRIPT_VERSION}_${DT}_mariadb_55-to-10-1_upgrade.log
 ;;
 5)
-
+  if [ -f /etc/my.cnf ]; then
+    DT=$(date +"%d%m%y-%H%M%S")
+    cp -a /etc/my.cnf "/etc/my.cnf-menu11-submenu5-autobackup-$DT"
+  fi
 centminlog
 {
 MARIADBVERCHECK=`rpm -qa | grep MariaDB-server | awk -F "-" '{print $3}' | cut -c1-4`
@@ -240,7 +259,10 @@ MARIADBVERCHECK=`rpm -qa | grep MariaDB-server | awk -F "-" '{print $3}' | cut -
 } 2>&1 | tee ${CENTMINLOGDIR}/centminmod_${SCRIPT_VERSION}_${DT}_mariadb_10-to-10-1_upgrade.log
 ;;
 6)
-
+  if [ -f /etc/my.cnf ]; then
+    DT=$(date +"%d%m%y-%H%M%S")
+    cp -a /etc/my.cnf "/etc/my.cnf-menu11-submenu6-autobackup-$DT"
+  fi
 centminlog
 {
 MARIADBVERCHECK=`rpm -qa | grep MariaDB-server | awk -F "-" '{print $3}' | cut -c1-4`
