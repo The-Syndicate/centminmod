@@ -1,5 +1,12 @@
 #/bin/bash
 #################################################
+# set locale temporarily to english
+# due to some non-english locale issues
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
+export LC_CTYPE=en_US.UTF-8
+#################################################
 # linfo installer written by George Liu (eva2000) vbtechsupport.com
 # latest version at http://linfo.sourceforge.net/
 #################################################
@@ -8,6 +15,7 @@ LINFO_VER='2.0.3'
 LINFOBASE='/usr/local/nginx/html'	# DO NOT CHANGE
 LINFODIR='cinfo'
 LINFOPATH="${LINFOBASE}/${LINFODIR}"
+FORCE_IPVFOUR='y' # curl/wget commands through script force IPv4
 #################################################
 # Setup Colours
 black='\E[30;40m'
@@ -42,12 +50,6 @@ return
 }
 
 ###########################################
-# set locale temporarily to english
-# due to some non-english locale issues
-export LC_ALL=en_US.UTF-8
-export LANG=en_US.UTF-8
-export LANGUAGE=en_US.UTF-8
-export LC_CTYPE=en_US.UTF-8
 
 shopt -s expand_aliases
 for g in "" e f; do
@@ -116,7 +118,7 @@ passp() {
 CUSER=$(echo "admin")
 CPASS=$(openssl rand 19 -base64 | tr -dc 'a-zA-Z0-9')
 
-    if [[ "$(hostname -f 2>&1 | grep -w 'Unknown host')" ]]; then
+    if [[ "$(hostname -f 2>&1 | grep -w 'Unknown host')" || "$(hostname -f 2>&1 | grep -w 'service not known')" ]]; then
       hname=$(hostname)
     else
       hname=$(hostname -f)

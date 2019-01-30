@@ -5,7 +5,7 @@ phpng_download() {
     PHPNGVER=$PHPMU_ALPHAVER
     # curl check as download url keeps changing between releases
     REMIURL='https://downloads.php.net/~stas'
-    curl -4Is --connect-timeout 5 --max-time 5 "${REMIURL}/php-${PHPNGVER}.tar.xz" | grep 'HTTP\/' | grep '200'
+    curl -${ipv_forceopt}Is --connect-timeout 5 --max-time 5 "${REMIURL}/php-${PHPNGVER}.tar.xz" | grep 'HTTP\/' | grep '200'
     REMIURL_CURLCHECK=$?
     if [[ "$REMIURL_CURLCHECK" != '0' ]]; then
       REMIURL='https://downloads.php.net/~cmb'
@@ -23,8 +23,8 @@ phpng_download() {
       if [ -s php-${PHPNGVER}.tar.xz ]; then
          cecho "php-${PHPNGVER}.tar.xz found, skipping download..." $boldgreen
       else
-          echo "wget -4 -cnv ${REMIURL}/php-${PHPNGVER}.tar.xz --tries=3"
-          wget -4 -cnv ${REMIURL}/php-${PHPNGVER}.tar.xz --tries=3
+          echo "wget -${ipv_forceopt}cnv ${REMIURL}/php-${PHPNGVER}.tar.xz --tries=3"
+          wget -${ipv_forceopt}cnv ${REMIURL}/php-${PHPNGVER}.tar.xz --tries=3
     ERROR=$?
       if [[ "$ERROR" != '0' ]]; then
         cecho "Error: php-${PHPNGVER}.tar.xz download failed." $boldgreen
@@ -52,7 +52,7 @@ phpng_download() {
     PHPNGVER=$PHPMU_ALPHAVER
     # curl check as download url keeps changing between releases
     REMIURL='https://downloads.php.net/~remi'
-    curl -4Is --connect-timeout 5 --max-time 5 "${REMIURL}/php-${PHPNGVER}.tar.xz" | grep 'HTTP\/' | grep '200'
+    curl -${ipv_forceopt}Is --connect-timeout 5 --max-time 5 "${REMIURL}/php-${PHPNGVER}.tar.xz" | grep 'HTTP\/' | grep '200'
     REMIURL_CURLCHECK=$?
     if [[ "$REMIURL_CURLCHECK" != '0' ]]; then
       REMIURL='https://downloads.php.net/~pollita'
@@ -70,8 +70,8 @@ phpng_download() {
       if [ -s php-${PHPNGVER}.tar.xz ]; then
          cecho "php-${PHPNGVER}.tar.xz found, skipping download..." $boldgreen
       else
-          echo "wget -4 -cnv ${REMIURL}/php-${PHPNGVER}.tar.xz --tries=3"
-          wget -4 -cnv ${REMIURL}/php-${PHPNGVER}.tar.xz --tries=3
+          echo "wget -${ipv_forceopt}cnv ${REMIURL}/php-${PHPNGVER}.tar.xz --tries=3"
+          wget -${ipv_forceopt}cnv ${REMIURL}/php-${PHPNGVER}.tar.xz --tries=3
     ERROR=$?
       if [[ "$ERROR" != '0' ]]; then
         cecho "Error: php-${PHPNGVER}.tar.xz download failed." $boldgreen
@@ -109,8 +109,8 @@ phpng_download() {
       if [ -s php-${PHPNGVER}.tar.gz ]; then
          cecho "php-${PHPNGVER}.tar.gz found, skipping download..." $boldgreen
       else
-          echo "wget -4 -cnv https://downloads.php.net/~ab/php-${PHPNGVER}.tar.gz --tries=3"
-          wget -4 -cnv https://downloads.php.net/~ab/php-${PHPNGVER}.tar.gz --tries=3
+          echo "wget -${ipv_forceopt}cnv https://downloads.php.net/~ab/php-${PHPNGVER}.tar.gz --tries=3"
+          wget -${ipv_forceopt}cnv https://downloads.php.net/~ab/php-${PHPNGVER}.tar.gz --tries=3
     ERROR=$?
       if [[ "$ERROR" != '0' ]]; then
         cecho "Error: php-${PHPNGVER}.tar.gz download failed." $boldgreen
@@ -133,13 +133,13 @@ phpng_download() {
         echo ""
       fi    
 ####################################################################    
-  elif [[ "$PHPMUVER" = 'NGDEBUG' || "$PHPMUVER" = '5.7' || "$PHPMUVER" = '7.3' ]] && [[ "$(echo $PHPMU_ALPHAVER | cut -c1-10)" != '7.0.0alpha' || "$(echo $PHPMU_ALPHAVER | cut -c1-9)" != '7.0.0beta' || "$(echo $PHPMU_ALPHAVER | cut -c1-7)" != '7.0.0RC' ]]; then
+  elif [[ "$PHPMUVER" = 'NGDEBUG' || "$PHPMUVER" = '5.7' || "$PHPMUVER" = '7.4' ]] && [[ "$(echo $PHPMU_ALPHAVER | cut -c1-10)" != '7.0.0alpha' || "$(echo $PHPMU_ALPHAVER | cut -c1-9)" != '7.0.0beta' || "$(echo $PHPMU_ALPHAVER | cut -c1-7)" != '7.0.0RC' ]]; then
     if [[ "$PHPMUVER" = 'NGDEBUG' ]]; then
       PHPNGVER='NGDEBUG'
     elif [[ "$PHPMUVER" = '5.7' ]]; then
       PHPNGVER='5.7.0'
-    elif [[ "$PHPMUVER" = '7.3' ]]; then
-      PHPNGVER='7.3.0'
+    elif [[ "$PHPMUVER" = '7.4' ]]; then
+      PHPNGVER='7.4.0'
     fi
     cecho "Downloading PHP $PHPMUVER from https://git.php.net/repository/php-src.git" $boldyellow
     cd $DIR_TMP

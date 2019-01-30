@@ -31,6 +31,7 @@
 # /usr/bin/pip3.4
 # 
 # https://docs.python.org/3/library/venv.html
+FORCE_IPVFOUR='y' # curl/wget commands through script force IPv4
 ###########################################################
 # set locale temporarily to english
 # due to some non-english locale issues
@@ -109,11 +110,13 @@ if [[ "$CENTOS_SIX" = '6' ]]; then
     if [ ! -f /etc/yum.repos.d/ius.repo ]; then
         rpm --import https://dl.iuscommunity.org/pub/ius/IUS-COMMUNITY-GPG-KEY
         yum -y install https://centos6.iuscommunity.org/ius-release.rpm
+        yum -y install yum-plugin-replace
     fi
 elif [[ "$CENTOS_SEVEN" = '7' ]]; then
     if [ ! -f /etc/yum.repos.d/ius.repo ]; then
         rpm --import https://dl.iuscommunity.org/pub/ius/IUS-COMMUNITY-GPG-KEY
         yum -y install https://centos7.iuscommunity.org/ius-release.rpm
+        yum -y install yum-plugin-replace
     fi
 fi
 

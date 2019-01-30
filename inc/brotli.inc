@@ -18,8 +18,8 @@ scl_install() {
         source /opt/rh/devtoolset-6/enable
       fi
     else
-      if [[ -f /opt/rh/devtoolset-4/root/usr/bin/gcc && -f /opt/rh/devtoolset-4/root/usr/bin/g++ ]]; then
-        source /opt/rh/devtoolset-4/enable
+      if [[ -f /opt/rh/devtoolset-6/root/usr/bin/gcc && -f /opt/rh/devtoolset-6/root/usr/bin/g++ ]]; then
+        source /opt/rh/devtoolset-6/enable
       fi
     fi
     if [[ "$(gcc --version | head -n1 | awk '{print $3}' | cut -d . -f1,2 | sed "s|\.|0|")" -lt '407' ]]; then
@@ -84,19 +84,19 @@ scl_install() {
         /opt/rh/devtoolset-6/root/usr/bin/g++ --version
       else
         if [[ -z "$(rpm -qa | grep rpmforge)" ]]; then
-          if [[ "$(rpm -ql devtoolset-4-gcc >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-4-gcc-c++ >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-4-binutils >/dev/null 2>&1; echo $?)" -ne '0' ]]; then
-            time $YUMDNFBIN -y -q install devtoolset-4-gcc devtoolset-4-gcc-c++ devtoolset-4-binutils
+          if [[ "$(rpm -ql devtoolset-6-gcc >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-6-gcc-c++ >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-6-binutils >/dev/null 2>&1; echo $?)" -ne '0' ]]; then
+            time $YUMDNFBIN -y -q install devtoolset-6-gcc devtoolset-6-gcc-c++ devtoolset-6-binutils
           fi
           sar_call
         else
-          if [[ "$(rpm -ql devtoolset-4-gcc >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-4-gcc-c++ >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-4-binutils >/dev/null 2>&1; echo $?)" -ne '0' ]]; then
-            time $YUMDNFBIN -y -q install devtoolset-4-gcc devtoolset-4-gcc-c++ devtoolset-4-binutils --disablerepo=rpmforge
+          if [[ "$(rpm -ql devtoolset-6-gcc >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-6-gcc-c++ >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-6-binutils >/dev/null 2>&1; echo $?)" -ne '0' ]]; then
+            time $YUMDNFBIN -y -q install devtoolset-6-gcc devtoolset-6-gcc-c++ devtoolset-6-binutils --disablerepo=rpmforge
           fi
           sar_call
         fi
         echo
-        /opt/rh/devtoolset-4/root/usr/bin/gcc --version
-        /opt/rh/devtoolset-4/root/usr/bin/g++ --version
+        /opt/rh/devtoolset-6/root/usr/bin/gcc --version
+        /opt/rh/devtoolset-6/root/usr/bin/g++ --version
       fi
     fi
   elif [[ "$CENTOS_SEVEN" = '7' ]]; then
@@ -113,7 +113,7 @@ scl_install() {
         echo
         /opt/gcc8/bin/gcc --version
         /opt/gcc8/bin/g++ --version
-      elif [[ "$DEVTOOLSETSEVEN" = [yY] || "$CLANG_FOUR" = [yY] ]]; then
+      elif [[ "$DEVTOOLSETSEVEN" = [yY] || "$CLANG_FOUR" = [yY] || "$CLANG_FIVE" = [yY] ]]; then
         if [[ -z "$(rpm -qa | grep rpmforge)" ]]; then
           if [[ "$(rpm -ql devtoolset-7-gcc >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-7-gcc-c++ >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-7-binutils >/dev/null 2>&1; echo $?)" -ne '0' ]]; then
             time $YUMDNFBIN -y -q install devtoolset-7-gcc devtoolset-7-gcc-c++ devtoolset-7-binutils
@@ -128,10 +128,13 @@ scl_install() {
         if [[ "$CLANG_FOUR" = [yY] && ! -f /opt/rh/llvm-toolset-7/root/usr/bin/clang ]]; then
           time $YUMDNFBIN -y install devtoolset-7-runtime llvm-toolset-7-runtime devtoolset-7-libstdc++-devel llvm-toolset-7-clang llvm-toolset-7-llvm-libs llvm-toolset-7-llvm-static llvm-toolset-7-compiler-rt llvm-toolset-7-libomp llvm-toolset-7-clang-libs
         fi
+        if [[ "$CLANG_FIVE" = [yY] && ! -f /opt/rh/llvm-toolset-7/root/usr/bin/clang ]]; then
+          time $YUMDNFBIN -y install devtoolset-7-runtime llvm-toolset-7-runtime devtoolset-7-libstdc++-devel llvm-toolset-7-clang llvm-toolset-7-llvm-libs llvm-toolset-7-llvm-static llvm-toolset-7-compiler-rt llvm-toolset-7-libomp llvm-toolset-7-clang-libs
+        fi
         echo
         /opt/rh/devtoolset-7/root/usr/bin/gcc --version
         /opt/rh/devtoolset-7/root/usr/bin/g++ --version
-        if [[ "$CLANG_FOUR" = [yY] && -f /opt/rh/llvm-toolset-7/root/usr/bin/clang ]]; then
+        if [[ "$CLANG_FOUR" = [yY] && -f /opt/rh/llvm-toolset-7/root/usr/bin/clang || "$CLANG_FIVE" = [yY] && -f /opt/rh/llvm-toolset-7/root/usr/bin/clang ]]; then
           /opt/rh/llvm-toolset-7/root/usr/bin/clang -v
         fi
         # if [[ -f /opt/rh/llvm-toolset-7/root/usr/bin/clang++ ]]; then
@@ -154,28 +157,28 @@ scl_install() {
         /opt/rh/devtoolset-6/root/usr/bin/g++ --version
       else
         if [[ -z "$(rpm -qa | grep rpmforge)" ]]; then
-          if [[ "$(rpm -ql devtoolset-4-gcc >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-4-gcc-c++ >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-4-binutils >/dev/null 2>&1; echo $?)" -ne '0' ]]; then
-            time $YUMDNFBIN -y -q install devtoolset-4-gcc devtoolset-4-gcc-c++ devtoolset-4-binutils
+          if [[ "$(rpm -ql devtoolset-6-gcc >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-6-gcc-c++ >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-6-binutils >/dev/null 2>&1; echo $?)" -ne '0' ]]; then
+            time $YUMDNFBIN -y -q install devtoolset-6-gcc devtoolset-6-gcc-c++ devtoolset-6-binutils
           fi
           sar_call
         else
-          if [[ "$(rpm -ql devtoolset-4-gcc >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-4-gcc-c++ >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-4-binutils >/dev/null 2>&1; echo $?)" -ne '0' ]]; then
-            time $YUMDNFBIN -y -q install devtoolset-4-gcc devtoolset-4-gcc-c++ devtoolset-4-binutils --disablerepo=rpmforge
+          if [[ "$(rpm -ql devtoolset-6-gcc >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-6-gcc-c++ >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ "$(rpm -ql devtoolset-6-binutils >/dev/null 2>&1; echo $?)" -ne '0' ]]; then
+            time $YUMDNFBIN -y -q install devtoolset-6-gcc devtoolset-6-gcc-c++ devtoolset-6-binutils --disablerepo=rpmforge
           fi
           sar_call
         fi
         echo
-        /opt/rh/devtoolset-4/root/usr/bin/gcc --version
-        /opt/rh/devtoolset-4/root/usr/bin/g++ --version
+        /opt/rh/devtoolset-6/root/usr/bin/gcc --version
+        /opt/rh/devtoolset-6/root/usr/bin/g++ --version
       fi
   fi # centos 6 only needed
 }
 
 libbroti_install() {
   if [[ "$NGINX_LIBBROTLI" = [yY] && "$(uname -m)" = 'x86_64' ]]; then
-    # if devtoolset-4 doesn't exist install it otherwise check if gcc & g++ versions are less than 4.7 (407)
+    # if devtoolset-6 doesn't exist install it otherwise check if gcc & g++ versions are less than 4.7 (407)
     if [[ "$CENTOS_SIX" = '6' ]]; then
-      if [[ ! -f /opt/rh/devtoolset-4/root/usr/bin/gcc || ! -f /opt/rh/devtoolset-4/root/usr/bin/g++ ]] || [[ ! -f /opt/rh/devtoolset-6/root/usr/bin/gcc || ! -f /opt/rh/devtoolset-6/root/usr/bin/g++ ]]; then
+      if [[ ! -f /opt/rh/devtoolset-6/root/usr/bin/gcc || ! -f /opt/rh/devtoolset-6/root/usr/bin/g++ ]] || [[ ! -f /opt/rh/devtoolset-6/root/usr/bin/gcc || ! -f /opt/rh/devtoolset-6/root/usr/bin/g++ ]]; then
         scl_install
         unset CC
         unset CXX
@@ -199,8 +202,8 @@ libbroti_install() {
         export CXX="ccache g++"
         gcc --version
         g++ --version
-      elif [[ -f /opt/rh/devtoolset-4/root/usr/bin/gcc && -f /opt/rh/devtoolset-4/root/usr/bin/g++ ]] && [[ "$(gcc --version | head -n1 | awk '{print $3}' | cut -d . -f1,2 | sed "s|\.|0|")" -lt '407' ]]; then
-        source /opt/rh/devtoolset-4/enable
+      elif [[ -f /opt/rh/devtoolset-6/root/usr/bin/gcc && -f /opt/rh/devtoolset-6/root/usr/bin/g++ ]] && [[ "$(gcc --version | head -n1 | awk '{print $3}' | cut -d . -f1,2 | sed "s|\.|0|")" -lt '407' ]]; then
+        source /opt/rh/devtoolset-6/enable
         unset CC
         unset CXX
         export CC="ccache gcc"
@@ -225,7 +228,7 @@ libbroti_install() {
 
     LIBBROTLI_LINK='https://github.com/bagder/libbrotli'
     # fallback mirror if official github is down, use gitlab mirror
-    curl -4Is --connect-timeout 5 --max-time 5 $LIBBROTLI_LINK | grep 'HTTP\/' | grep '200' >/dev/null 2>&1
+    curl -${ipv_forceopt}Is --connect-timeout 5 --max-time 5 $LIBBROTLI_LINK | grep 'HTTP\/' | grep '200' >/dev/null 2>&1
     LIBBROTLI_CURLCHECK=$?
     if [[ "$LIBBROTLI_CURLCHECK" != '0' ]]; then
       LIBBROTLI_LINK='https://gitlab.com/centminmod-github-mirror/libbrotli.git'
@@ -272,6 +275,19 @@ libbroti_install() {
   fi
 }
 
+brdep_update() {
+  if [[ "$NGINX_BROTLIDEP_UPDATE" = [yY] ]]; then
+    grep 'BROTLI_VERSION' c/common/version.h
+    brotlilatest_tag=$(git tag | tail -1)
+    brotlibranch=$(echo $brotlilatest_tag | sed -e 's|v|local-|')
+    echo $brotlilatest_tag
+    echo $brotlibranch
+    git stash
+    git checkout $brotlilatest_tag -b $brotlibranch
+    grep 'BROTLI_VERSION' c/common/version.h
+  fi
+}
+
 ngxbrotli_download() {
   if [[ "$NGINX_LIBBROTLI" = [yY] && "$(uname -m)" = 'x86_64' ]]; then
     # only if GCC used to compile nginx with ngx_brotli
@@ -287,42 +303,45 @@ ngxbrotli_download() {
 
     NGXBROTLILINK='https://github.com/eustas/ngx_brotli'
     # fallback mirror if official github is down, use gitlab mirror
-    curl -4Is --connect-timeout 5 --max-time 5 $NGXBROTLILINK | grep 'HTTP\/' | grep '200' >/dev/null 2>&1
+    curl -${ipv_forceopt}Is --connect-timeout 5 --max-time 5 $NGXBROTLILINK | grep 'HTTP\/' | grep '200' >/dev/null 2>&1
     NGXBROTLICURLCHECK=$?
     if [[ "$NGXBROTLICURLCHECK" != '0' ]]; then
       NGXBROTLILINK='https://gitlab.com/centminmod-github-mirror/ngx_brotli.git'
     fi
 
+    rm -rf ngx_brotli
     if [ ! -d ngx_brotli ]; then
       time git clone --recursive "$NGXBROTLILINK"
       cd ngx_brotli
       git submodule update --init
       cd deps/brotli
+      brdep_update
       ./configure-cmake
       make${MAKETHREADS}
       make install
       cd ../../
       cd ../
     fi
-    if [[ "$INITIALINSTALL" != [yY] ]]; then
-        cd ngx_brotli
-        # git stash
-        git fetch origin
-        git reset --hard origin/master
-        git pull
-        git submodule update --init
-        cd deps/brotli
-        ./configure-cmake
-        make${MAKETHREADS}
-        make install
-        cd ../../
-        cd ../
-    fi
+    # if [[ "$INITIALINSTALL" != [yY] ]]; then
+    #     cd ngx_brotli
+    #     # git stash
+    #     git fetch origin
+    #     git reset --hard origin/master
+    #     git pull
+    #     git submodule update --init
+    #     cd deps/brotli
+    #     brdep_update
+    #     ./configure-cmake
+    #     make${MAKETHREADS}
+    #     make install
+    #     cd ../../
+    #     cd ../
+    # fi
     echo
 cat > "/usr/local/nginx/conf/brotli_inc.conf" <<EIF
 brotli on;
 brotli_static on;
-brotli_min_length 1000;
+brotli_min_length 65536;
 brotli_buffers 1024 8k;
 brotli_comp_level 5;
 brotli_types text/plain text/css text/xml application/javascript application/x-javascript application/xml application/xml+rss application/ecmascript application/json image/svg+xml;
@@ -332,7 +351,7 @@ BROTLI_INCLUDECHECK=$(grep '\/usr\/local\/nginx\/conf\/brotli_inc.conf' /usr/loc
 
     if [[ -z "$BROTLI_INCLUDECHECK" && -f /usr/local/nginx/conf/brotli_inc.conf ]]; then
           sed -i 's/http {/http { \n include \/usr\/local\/nginx\/conf\/brotli_inc.conf;/g' /usr/local/nginx/conf/nginx.conf
-      fi
+    fi
       sed -i 's|^ #include \/usr\/local\/nginx\/conf\/brotli_inc.conf;| include \/usr\/local\/nginx\/conf\/brotli_inc.conf;|g' /usr/local/nginx/conf/nginx.conf
     else
       sed -i 's|^ include \/usr\/local\/nginx\/conf\/brotli_inc.conf;| #include \/usr\/local\/nginx\/conf\/brotli_inc.conf;|g' /usr/local/nginx/conf/nginx.conf

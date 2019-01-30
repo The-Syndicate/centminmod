@@ -1,6 +1,13 @@
 #!/bin/bash
 VER='0.1.1'
 ######################################################
+# set locale temporarily to english
+# due to some non-english locale issues
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
+export LC_CTYPE=en_US.UTF-8
+######################################################
 # golang binary installer
 # for Centminmod.com
 # written by George Liu (eva2000) centminmod.com
@@ -10,6 +17,7 @@ GO_VERSION='1.10.3'
 DT=$(date +"%d%m%y-%H%M%S")
 CENTMINLOGDIR='/root/centminlogs'
 DIR_TMP='/svr-setup'
+FORCE_IPVFOUR='y' # curl/wget commands through script force IPv4
 ######################################################
 # Setup Colours
 black='\E[30;40m'
@@ -44,12 +52,6 @@ return
 }
 
 ###########################################
-# set locale temporarily to english
-# due to some non-english locale issues
-export LC_ALL=en_US.UTF-8
-export LANG=en_US.UTF-8
-export LANGUAGE=en_US.UTF-8
-export LC_CTYPE=en_US.UTF-8
 
 shopt -s expand_aliases
 for g in "" e f; do
@@ -92,15 +94,24 @@ if [[ -f /etc/system-release && "$(awk '{print $1,$2,$3}' /etc/system-release)" 
     CENTOS_SIX='6'
 fi
 
+if [ -f /etc/centminmod/custom_config.inc ]; then
+  source /etc/centminmod/custom_config.inc
+fi
+if [[ "$FORCE_IPVFOUR" != [yY] ]]; then
+  ipv_forceopt=""
+else
+  ipv_forceopt='4'
+fi
+
 go_install() {
 	cd $DIR_TMP
-  GO_VERSION=$(curl -4s https://golang.org/dl/ | egrep -o "go[0-9.]+\.linux\-amd64\.tar[.a-z]*" | head -n1 | sed -e 's|.linux-amd64.tar.gz||' -e 's|go||')
+  GO_VERSION=$(curl -${ipv_forceopt}s https://golang.org/dl/ | egrep -o "go[0-9.]+\.linux\-amd64\.tar[.a-z]*" | head -n1 | sed -e 's|.linux-amd64.tar.gz||' -e 's|go||')
 		
   cecho "Download go${GO_VERSION}.linux-${GOARCH}.tar.gz ..." $boldyellow
   if [ -s go${GO_VERSION}.linux-${GOARCH}.tar.gz ]; then
   	cecho "go${GO_VERSION}.linux-${GOARCH}.tar.gz Archive found, skipping download..." $boldgreen
   else
-  	wget -c4 --progress=bar https://dl.google.com/go/go${GO_VERSION}.linux-${GOARCH}.tar.gz --tries=3 
+  	wget -c${ipv_forceopt} --progress=bar https://dl.google.com/go/go${GO_VERSION}.linux-${GOARCH}.tar.gz --tries=3 
 	ERROR=$?
 		if [[ "$ERROR" != '0' ]]; then
 			cecho "Error: go${GO_VERSION}.linux-${GOARCH}.tar.gz download failed." $boldgreen

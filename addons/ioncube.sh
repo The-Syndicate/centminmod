@@ -1,17 +1,19 @@
 #!/bin/bash
 #############################################################
-# official ioncube loader PHP extension Addon for
-# Centmin Mod centminmod.com
-# written by George Liu (eva2000)
-#############################################################
-PHPCURRENTVER=$(php -v | awk -F " " '{print $2}' | head -n1 | cut -d . -f1,2)
-#############################################################
 # set locale temporarily to english
 # due to some non-english locale issues
 export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
 export LANGUAGE=en_US.UTF-8
 export LC_CTYPE=en_US.UTF-8
+#############################################################
+# official ioncube loader PHP extension Addon for
+# Centmin Mod centminmod.com
+# written by George Liu (eva2000)
+#############################################################
+PHPCURRENTVER=$(php -v | awk -F " " '{print $2}' | head -n1 | cut -d . -f1,2)
+FORCE_IPVFOUR='y' # curl/wget commands through script force IPv4
+#############################################################
 
 shopt -s expand_aliases
 for g in "" e f; do
@@ -32,6 +34,15 @@ echo "ioncube loader only supports PHP 5.3, 5.4, 5.5, 5.6 & 7.0"
 echo "http://blog.ioncube.com/2016/09/15/php-7-ioncube-loaders/"
 echo
 
+if [ -f /etc/centminmod/custom_config.inc ]; then
+  source /etc/centminmod/custom_config.inc
+fi
+if [[ "$FORCE_IPVFOUR" != [yY] ]]; then
+  ipv_forceopt=""
+else
+  ipv_forceopt='4'
+fi
+
 cd /svr-setup
 mkdir -p ioncube
 cd ioncube
@@ -39,35 +50,35 @@ cd ioncube
 if [[ "$(uname -m)" = 'x86_64' ]]; then
   if [[ "$(php -v | awk -F " " '{print $2}' | head -n1 | cut -d . -f1)" != '7' ]]; then
     if [[ "$(php -v | awk -F " " '{print $2}' | head -n1 | cut -d . -f1,2)" != '5.6' ]]; then
-      wget -4 -cnv https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64_5.1.2.tar.gz
+      wget -${ipv_forceopt}cnv https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64_5.1.2.tar.gz
       tar xvzf ioncube_loaders_lin_x86-64_5.1.2.tar.gz
     elif [[ "$(php -v | awk -F " " '{print $2}' | head -n1 | cut -d . -f1,2)" = '5.6' ]]; then
       rm -rf ioncube_loaders_lin_x86-64.tar.gz
       rm -rf ioncube
-      wget -4 -cnv https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64.tar.gz
+      wget -${ipv_forceopt}cnv https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64.tar.gz
       tar xvzf ioncube_loaders_lin_x86-64.tar.gz
     fi
   else
     rm -rf ioncube_loaders_lin_x86-64.tar.gz
     rm -rf ioncube
-    wget -4 -cnv https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64.tar.gz
+    wget -${ipv_forceopt}cnv https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64.tar.gz
     tar xvzf ioncube_loaders_lin_x86-64.tar.gz
   fi
 else
   if [[ "$(php -v | awk -F " " '{print $2}' | head -n1 | cut -d . -f1)" != '7' ]]; then
     if [[ "$(php -v | awk -F " " '{print $2}' | head -n1 | cut -d . -f1,2)" != '5.6' ]]; then
-      wget -4 -cnv https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86_5.1.2.tar.gz
+      wget -${ipv_forceopt}cnv https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86_5.1.2.tar.gz
       tar xvzf ioncube_loaders_lin_x86_5.1.2.tar.gz
     elif [[ "$(php -v | awk -F " " '{print $2}' | head -n1 | cut -d . -f1,2)" = '5.6' ]]; then
       rm -rf ioncube_loaders_lin_x86.tar.gz
       rm -rf ioncube
-      wget -4 -cnv https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86.tar.gz
+      wget -${ipv_forceopt}cnv https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86.tar.gz
       tar xvzf ioncube_loaders_lin_x86.tar.gz
     fi
   else
     rm -rf ioncube_loaders_lin_x86.tar.gz
     rm -rf ioncube
-    wget -4 -cnv https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86.tar.gz
+    wget -${ipv_forceopt}cnv https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86.tar.gz
     tar xvzf ioncube_loaders_lin_x86.tar.gz
   fi
 fi

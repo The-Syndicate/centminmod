@@ -190,7 +190,7 @@ if [[ "$FPMRPM_LIBEVENT" = [yY] && "$(uname -m)" = 'x86_64' ]]; then
     if [ -s libevent-2.0.21-1.x86_64.rpm ]; then
         cecho "libevent-2.0.21-1.x86_64.rpm found, skipping download..." $boldgreen
     else
-        wget -4 -cnv https://centminmod.com/centminmodparts/customrpms/fpm/libevent-2.0.21-1.x86_64.rpm --tries=3
+        wget -${ipv_forceopt}cnv https://centminmod.com/centminmodparts/customrpms/fpm/libevent-2.0.21-1.x86_64.rpm --tries=3
         rpm -Uvh libevent-2.0.21-1.x86_64.rpm
     fi
 else
@@ -219,7 +219,7 @@ if [[ "$FPMRPM_MEMCACHED" = [yY] && "$(uname -m)" = 'x86_64' ]]; then
     if [ -s memcached-1.4.18-1.x86_64.rpm ]; then
         cecho "memcached-1.4.18-1.x86_64.rpm found, skipping download..." $boldgreen
     else
-        wget -4 -cnv https://centminmod.com/centminmodparts/customrpms/fpm/memcached-1.4.18-1.x86_64.rpm --tries=3
+        wget -${ipv_forceopt}cnv https://centminmod.com/centminmodparts/customrpms/fpm/memcached-1.4.18-1.x86_64.rpm --tries=3
         rpm -Uvh memcached-1.4.18-1.x86_64.rpm
         cd "${DIR_TMP}/memcached-${MEMCACHED_VERSION}"
         cp -f "$DIR_TMP/memcached-${MEMCACHED_VERSION}/scripts/memcached-tool" /usr/local/bin
@@ -274,6 +274,22 @@ if [ "$PHP_MEMCACHE" == 'y' ]; then
         cd memcache-php7
         if [[ "$INITIALINSTALL" != [yY] ]]; then
             make clean
+        fi
+        if [[ "$CENTOS_SIX" -eq '6' ]]; then
+            # PHP 7.3.0 + centos 6 issue https://community.centminmod.com/posts/69561/
+            if [ ! -f /usr/bin/autoconf268 ]; then
+                echo "yum -q -y install autoconf268"
+                yum -q -y install autoconf268
+            fi
+            if [ -f /usr/bin/autoconf268 ]; then
+                export PHP_AUTOCONF=/usr/bin/autoconf268
+                export PHP_AUTOHEADER=/usr/bin/autoheader268
+            fi
+        fi
+        if [[ "$PHPCURRENTVER" = '7.3' || "$PHPMUVER" = '7.3' ]]; then
+           # patch support https://github.com/websupport-sk/pecl-memcache/pull/30
+           wget -O memcache-php73.patch https://patch-diff.githubusercontent.com/raw/websupport-sk/pecl-memcache/pull/30.patch
+           patch -p1 < memcache-php73.patch
         fi
         /usr/local/bin/phpize
         ./configure --enable-memcache --with-php-config=/usr/local/bin/php-config
@@ -388,7 +404,18 @@ if [[ "$PHPMUVER" > 7 || "$PHPSEVEN_CHECKVER" = '0' ]]; then
     echo
     echo "compiling memcached PHP extension for PHP 7.x ..."
     echo "PHPMUVER = $PHPMUVER"
-    if [[ "$PHPMUVER" = '7.3' || "$PHPCURRENTVER" = '7.3' ]]; then
+    if [[ "$CENTOS_SIX" -eq '6' ]]; then
+        # PHP 7.3.0 + centos 6 issue https://community.centminmod.com/posts/69561/
+        if [ ! -f /usr/bin/autoconf268 ]; then
+            echo "yum -q -y install autoconf268"
+            yum -q -y install autoconf268
+        fi
+        if [ -f /usr/bin/autoconf268 ]; then
+            export PHP_AUTOCONF=/usr/bin/autoconf268
+            export PHP_AUTOHEADER=/usr/bin/autoheader268
+        fi
+    fi
+    if [[ "$PHPMUVER" = '7.4' || "$PHPCURRENTVER" = '7.4' ]]; then
       pushd "$DIR_TMP"
       rm -rf memcached-php7
       time git clone --depth=1 https://github.com/php-memcached-dev/php-memcached.git memcached-php7

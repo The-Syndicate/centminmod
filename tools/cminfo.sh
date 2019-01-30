@@ -1,5 +1,12 @@
 #!/bin/bash
 #####################################################
+# set locale temporarily to english
+# due to some non-english locale issues
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
+export LC_CTYPE=en_US.UTF-8
+#####################################################
 # quick info overview for centminmod.com installs
 #####################################################
 DT=$(date +"%d%m%y-%H%M%S")
@@ -10,6 +17,7 @@ USER='root'
 PASS=''
 MYSQLHOST='localhost'
 #####################################################
+FORCE_IPVFOUR='y' # curl/wget commands through script force IPv4
 CURL_TIMEOUTS=' --max-time 5 --connect-timeout 5'
 CURRENTIP=$(echo $SSH_CLIENT | awk '{print $1}')
 VIRTUALCORES=$(grep -c ^processor /proc/cpuinfo)
@@ -64,12 +72,6 @@ if [[ -z "$SYSTYPE" ]]; then
     SYSTYPE='not virtualized'
 fi
 
-if [[ -z "$PAGESPEEDSTATUS" ]]; then
-    PS=ON
-else
-    PS=OFF
-fi
-
 if [ -z ${CPUCORES} ]; then
 CPUCORES='1'
 fi
@@ -83,6 +85,16 @@ CPUCORES=$((${CPUCORES} * ${PHYSICALCPUS}));
     HT=yes; 
     else HT=no; 
 fi
+
+if [ -f /etc/centminmod/custom_config.inc ]; then
+  source /etc/centminmod/custom_config.inc
+fi
+if [[ "$FORCE_IPVFOUR" != [yY] ]]; then
+  ipv_forceopt=""
+else
+  ipv_forceopt='4'
+fi
+
 #####################################################
 top_info() {
     SYSTYPE=$(virt-what | head -n1)
@@ -110,7 +122,13 @@ top_info() {
     MYSQLUPTIMEFORMAT=$(mysqladmin $MYSQLADMINOPT ver | awk '/Uptime/ { print $2, $3, $4, $5, $6, $7, $8, $9 }')
     MYSQLSTART=$(mysql $MYSQLADMINOPT -e "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP() - variable_value) AS server_start FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE variable_name='Uptime';" | egrep -Ev '+--|server_start')
     fi
-    PAGESPEEDSTATUS=$(grep 'pagespeed off' /usr/local/nginx/conf/pagespeed.conf)
+    PAGESPEEDSTATUS=$(grep 'pagespeed unplugged' /usr/local/nginx/conf/pagespeed.conf)
+
+    if [[ -z "$PAGESPEEDSTATUS" ]]; then
+        PS=ON
+    else
+        PS=OFF
+    fi
     
     if [ -f /usr/local/sbin/maldet ]; then
         MALDET_INFOVER=$(/usr/local/sbin/maldet -v | head -n1 | awk '{print $4}')
@@ -126,8 +144,8 @@ top_info() {
 
     echo " Server Location Info"
     # echo
-    curl -4s${CURL_TIMEOUTS} https://ipinfo.io/geo 2>&1 | sed -e 's|[{}]||' -e 's/\(^"\|"\)//g' -e 's|,||' | egrep -v 'ip:|phone|postal|loc'
-    echo "  ASN: $(curl -4s${CURL_TIMEOUTS} https://ipinfo.io/org 2>&1)"
+    curl -${ipv_forceopt}s${CURL_TIMEOUTS} https://ipinfo.io/geo 2>&1 | sed -e 's|[{}]||' -e 's/\(^"\|"\)//g' -e 's|,||' | egrep -v 'ip:|phone|postal|loc'
+    echo "  ASN: $(curl -${ipv_forceopt}s${CURL_TIMEOUTS} https://ipinfo.io/org 2>&1)"
     
     echo
     echo " Processors" "physical = ${PHYSICALCPUS}, cores = ${CPUCORES}, virtual = ${VIRTUALCORES}, hyperthreading = ${HT}"
@@ -340,7 +358,7 @@ rm -rf /usr/bin/cminfo
 CMINFOLINK='https://raw.githubusercontent.com/centminmod/centminmod/master/tools/cminfo.sh'
 
 # fallback mirror
-curl -4Is --connect-timeout 5 --max-time 5 \$CMINFOLINK | grep 'HTTP\/' | grep '200' >/dev/null 2>&1
+curl -${ipv_forceopt}Is --connect-timeout 5 --max-time 5 \$CMINFOLINK | grep 'HTTP\/' | grep '200' >/dev/null 2>&1
 CMINFO_CURLCHECK=\$?
 if [[ "\$CMINFO_CURLCHECK" != '0' ]]; then
     CMINFOLINK='https://gitlab.com/centminmod-github-mirror/centminmod/raw/master/tools/cminfo.sh'
@@ -408,7 +426,13 @@ MYSQLUPTIME=$(mysqladmin $MYSQLADMINOPT ext | awk '/Uptime|Uptime_since_flush_st
 MYSQLUPTIMEFORMAT=$(mysqladmin $MYSQLADMINOPT ver | awk '/Uptime/ { print $2, $3, $4, $5, $6, $7, $8, $9 }')
 MYSQLSTART=$(mysql $MYSQLADMINOPT -e "SELECT FROM_UNIXTIME(UNIX_TIMESTAMP() - variable_value) AS server_start FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE variable_name='Uptime';" | egrep -Ev '+--|server_start')
 fi
-PAGESPEEDSTATUS=$(grep 'pagespeed off' /usr/local/nginx/conf/pagespeed.conf)
+PAGESPEEDSTATUS=$(grep 'pagespeed unplugged' /usr/local/nginx/conf/pagespeed.conf)
+
+if [[ -z "$PAGESPEEDSTATUS" ]]; then
+    PS=ON
+else
+    PS=OFF
+fi
 
 if [ -f /usr/local/sbin/maldet ]; then
     MALDET_INFOVER=$(/usr/local/sbin/maldet -v | head -n1 | awk '{print $4}')
@@ -424,7 +448,7 @@ echo "------------------------------------------------------------------"
 
 echo "Server Location Info"
 # echo
-curl -4s${CURL_TIMEOUTS} https://ipinfo.io/geo 2>&1 | sed -e 's|[{}]||' -e 's/\(^"\|"\)//g' -e 's|,||' | egrep -v 'phone|postal|loc'
+curl -${ipv_forceopt}s${CURL_TIMEOUTS} https://ipinfo.io/geo 2>&1 | sed -e 's|[{}]||' -e 's/\(^"\|"\)//g' -e 's|,||' | egrep -v 'phone|postal|loc'
 
 echo
 echo "Processors" "physical = ${PHYSICALCPUS}, cores = ${CPUCORES}, virtual = ${VIRTUALCORES}, hyperthreading = ${HT}"

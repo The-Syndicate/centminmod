@@ -1,11 +1,20 @@
 #!/bin/bash
+########################################################
+# set locale temporarily to english
+# for wget compile due to some non-english
+# locale issues
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
+export LC_CTYPE=en_US.UTF-8
 #########################################################
 # Install AVG Anti-Virus Free edition for Linux on CentOS/RHEL systems
 # default scans for /lib and /lib64 directories only
 # in response to http://www.webhostingtalk.com/showpost.php?p=8569541&postcount=1171
 # Summary at http://www.webhostingtalk.com/showthread.php?t=1235797
 # written by George Liu vbtechsupport.com
-# http://centminmod.com/avg_antivirus_free.html
+# https://centminmod.com/avg_antivirus_free.html
+FORCE_IPVFOUR='y' # curl/wget commands through script force IPv4
 #########################################################
 
 if [[ ! -f /etc/redhat-release ]] ; then
@@ -32,13 +41,22 @@ fi
 if [[ ! -f /bin/awk ]] ; then
 	yum -y -q install awk
 fi
+
+if [ -f /etc/centminmod/custom_config.inc ]; then
+  source /etc/centminmod/custom_config.inc
+fi
+if [[ "$FORCE_IPVFOUR" != [yY] ]]; then
+  ipv_forceopt=""
+else
+  ipv_forceopt='4'
+fi
 #########################################################
 
 SRCDIR='/usr/local/src'
 CURL_TIMEOUTS=' --max-time 30 --connect-timeout 10'
 # avg site blocks lynx calls switch to curl
 # AVGDOWNLOADRPM=$(lynx -dump http://free.avg.com/us-en/download-free-all-product | grep 'download.avgfree.com' | grep 'rpm' | awk -F " " '{print $2}')
-AVGDOWNLOADRPM=$(curl -4s${CURL_TIMEOUTS} http://free.avg.com/us-en/download-free-all-product | grep -o '<a .*href=.*>' | sed -e 's/<a /\n<a /g' | sed -e 's/<a .*href=['"'"'"]//' -e 's/["'"'"'].*$//' -e '/^$/ d' | grep 'download.avgfree.com' | grep 'rpm')
+AVGDOWNLOADRPM=$(curl -${ipv_forceopt}s${CURL_TIMEOUTS} http://free.avg.com/us-en/download-free-all-product | grep -o '<a .*href=.*>' | sed -e 's/<a /\n<a /g' | sed -e 's/<a .*href=['"'"'"]//' -e 's/["'"'"'].*$//' -e '/^$/ d' | grep 'download.avgfree.com' | grep 'rpm')
 AVGRPMNAME=$(echo ${AVGDOWNLOADRPM##*/})
 
 #########################################################

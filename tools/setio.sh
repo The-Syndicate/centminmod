@@ -1,5 +1,12 @@
 #!/bin/bash
 ########################################################################################
+# set locale temporarily to english
+# due to some non-english locale issues
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
+export LC_CTYPE=en_US.UTF-8
+########################################################################################
 # https://community.centminmod.com/threads/help-test-innodbio-sh-for-mysql-tuning.6012/
 # for centminmod.com /etc/my.cnf
 ########################################################################################
@@ -20,12 +27,6 @@ SCRIPT_SOURCEBASE=$(readlink -f $(dirname ${BASH_SOURCE[0]}))
 # account for tools directory placement of tools/setio.sh
 SCRIPT_DIR=$(readlink -f $(dirname ${SCRIPT_DIR}))
 ########################################################################################
-# set locale temporarily to english
-# due to some non-english locale issues
-export LC_ALL=en_US.UTF-8
-export LANG=en_US.UTF-8
-export LANGUAGE=en_US.UTF-8
-export LC_CTYPE=en_US.UTF-8
 
 shopt -s expand_aliases
 for g in "" e f; do
@@ -42,7 +43,7 @@ if [ ! -d "$FIOBASEDIR" ]; then
     cp -a /etc/my.cnf /etc/my.cnf-setiobackup
     sed -i 's|\[mysqld\]|\[mysqld\]\nignore-db-dir=cmsetiofiotest|' /etc/my.cnf
     MARIADBVERCHECK=$(rpm -qa | grep MariaDB-server | awk -F "-" '{print $3}' | cut -c1-4)
-    if [[ "$MARIADBVERCHECK" == '10.1' ]]; then
+    if [[ "$MARIADBVERCHECK" == '10.1' || "$MARIADBVERCHECK" == '10.2' || "$MARIADBVERCHECK" == '10.3' ]]; then
       sed -i 's|ignore-db-dir|ignore_db_dirs|g' /etc/my.cnf
     fi
     # /usr/bin/mysqlreload
@@ -289,7 +290,7 @@ setthreads() {
 }
 
 setpurgethreads() {
-  if [[ "$MDB_SVER" = '10.0' || "$MDB_SVER" = '10.1' ]]; then
+  if [[ "$MDB_SVER" = '10.0' || "$MDB_SVER" = '10.1' || "$MDB_SVER" = '10.2' || "$MDB_SVER" = '10.3' ]]; then
     if [[ "$CPUS" -eq '1' ]]; then
       sed -i "s|innodb_purge_threads=.*|innodb_purge_threads = 1|g" /etc/my.cnf
       sed -i "s|innodb_purge_threads = .*|innodb_purge_threads = 1|g" /etc/my.cnf
@@ -317,6 +318,7 @@ setpurgethreads() {
 
 setconcurrency() {
   INNODB_CONCURRENT=$(((CPUS+2)*2))
+  sed -i 's|^#innodb_thread_concurrency|innodb_thread_concurrency|g' /etc/my.cnf
   sed -i "s|innodb_thread_concurrency=.*|innodb_thread_concurrency = $INNODB_CONCURRENT|g" /etc/my.cnf
   sed -i "s|innodb_thread_concurrency = .*|innodb_thread_concurrency = $INNODB_CONCURRENT|g" /etc/my.cnf
   /usr/bin/mysql -e "SET GLOBAL innodb_thread_concurrency = $INNODB_CONCURRENT;"

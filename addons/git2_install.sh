@@ -8,7 +8,7 @@
 DT=$(date +"%d%m%y-%H%M%S")
 CENTMINLOGDIR='/root/centminlogs'
 DIR_TMP='/svr-setup'
-
+FORCE_IPVFOUR='y' # curl/wget commands through script force IPv4
 ###########################################################
 # set locale temporarily to english
 # due to some non-english locale issues
@@ -140,7 +140,7 @@ fi
 fi # repo file check
 
 cecho "*************************************************" $boldgreen
-cecho "Installing Git 2.8.*" $boldgreen
+cecho "Installing Git 2.x" $boldgreen
 cecho "*************************************************" $boldgreen
 
 # install Git 2.8 package to replace Git 1.8 package

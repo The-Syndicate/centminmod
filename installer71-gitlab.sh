@@ -1,10 +1,16 @@
 #!/bin/bash
 #######################################################
 # centminmod.com cli installer
-# To run installer.sh type: 
-# curl -4sL https://gist.github.com/centminmod/dbe765784e03bc4b0d40/raw/installer.sh | bash
+#
 #######################################################
 export PATH="/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/root/bin"
+# set locale temporarily to english
+# due to some non-english locale issues
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
+export LC_CTYPE=en_US.UTF-8
+#######################################################
 DT=$(date +"%d%m%y-%H%M%S")
 DNF_ENABLE='n'
 DNF_COPR='y'
@@ -12,6 +18,7 @@ branchname=123.09beta01
 DOWNLOAD="${branchname}.zip"
 LOCALCENTMINMOD_MIRROR='https://centminmod.com'
 
+FORCE_IPVFOUR='y' # curl/wget commands through script force IPv4
 INSTALLDIR='/usr/local/src'
 DIR_TMP='/svr-setup'
 #CUR_DIR="/usr/local/src/centminmod-${branchname}"
@@ -38,7 +45,7 @@ ALTPCRE_VERSION='8.42'
 ALTPCRELINKFILE="pcre-${ALTPCRE_VERSION}.tar.gz"
 ALTPCRELINK="${LOCALCENTMINMOD_MIRROR}/centminmodparts/pcre/${ALTPCRELINKFILE}"
 
-WGET_VERSION='1.19.4'
+WGET_VERSION='1.20.1'
 WGET_FILENAME="wget-${WGET_VERSION}.tar.gz"
 WGET_LINK="https://centminmod.com/centminmodparts/wget/${WGET_FILENAME}"
 
@@ -78,13 +85,6 @@ return
 }
 
 ###########################################################
-# 
-# set locale temporarily to english
-# due to some non-english locale issues
-export LC_ALL=en_US.UTF-8
-export LANG=en_US.UTF-8
-export LANGUAGE=en_US.UTF-8
-export LC_CTYPE=en_US.UTF-8
 
 shopt -s expand_aliases
 for g in "" e f; do
@@ -92,6 +92,10 @@ for g in "" e f; do
 done
 
 CENTOSVER=$(awk '{ print $3 }' /etc/redhat-release)
+CENTMINLOGDIR='/root/centminlogs'
+if [ ! -d "$CENTMINLOGDIR" ]; then
+  mkdir -p $CENTMINLOGDIR
+fi
 
 if [ "$CENTOSVER" == 'release' ]; then
     CENTOSVER=$(awk '{ print $4 }' /etc/redhat-release | cut -d . -f1,2)
@@ -135,6 +139,10 @@ if [ -f /proc/user_beancounters ]; then
             # 7401P at 12 cpu cores has 3.0Ghz clock frequency https://en.wikichip.org/wiki/amd/epyc/7401p
             # while greater than 12 cpu cores downclocks to 2.8Ghz
             CPUS=12
+        elif [[ "$(grep -o 'AMD EPYC 7371' /proc/cpuinfo | sort -u)" = 'AMD EPYC 7371' ]]; then
+            # 7371 at 8 cpu cores has 3.8Ghz clock frequency https://en.wikichip.org/wiki/amd/epyc/7371
+            # while greater than 8 cpu cores downclocks to 3.6Ghz
+            CPUS=8
         else
             CPUS=$(echo $(($CPUS+2)))
         fi
@@ -158,6 +166,10 @@ else
             # 7401P at 12 cpu cores has 3.0Ghz clock frequency https://en.wikichip.org/wiki/amd/epyc/7401p
             # while greater than 12 cpu cores downclocks to 2.8Ghz
             CPUS=12
+        elif [[ "$(grep -o 'AMD EPYC 7371' /proc/cpuinfo | sort -u)" = 'AMD EPYC 7371' ]]; then
+            # 7371 at 8 cpu cores has 3.8Ghz clock frequency https://en.wikichip.org/wiki/amd/epyc/7371
+            # while greater than 8 cpu cores downclocks to 3.6Ghz
+            CPUS=8
         else
             CPUS=$(echo $(($CPUS+4)))
         fi
@@ -170,7 +182,7 @@ else
 fi
 
 if [[ "$CENTOS_SEVEN" = '7' ]]; then
-  AXEL_VER='2.14.1'
+  AXEL_VER='2.16.1'
   AXEL_LINKFILE="axel-${AXEL_VER}.tar.gz"
   AXEL_LINK="${LOCALCENTMINMOD_MIRROR}/centminmodparts/axel/v${AXEL_VER}.tar.gz"
   AXEL_LINKLOCAL="https://github.com/axel-download-accelerator/axel/archive/v${AXEL_VER}.tar.gz"
@@ -179,6 +191,11 @@ fi
 
 if [ -f /etc/centminmod/custom_config.inc ]; then
   source /etc/centminmod/custom_config.inc
+fi
+if [[ "$FORCE_IPVFOUR" != [yY] ]]; then
+  ipv_forceopt=""
+else
+  ipv_forceopt='4'
 fi
 
 if [[ -f /usr/bin/systemd-detect-virt && "$(/usr/bin/systemd-detect-virt)" = 'lxc' ]] || [[ -f $(which virt-what) && $(virt-what | head -n1) = 'lxc' ]]; then
@@ -395,7 +412,7 @@ systemstats() {
     sar -d > /root/centminlogs/sar-d-installstats.log
     fi
     sar -b > /root/centminlogs/sar-b-installstats.log
-    if [[ "$(hostname -f 2>&1 | grep -w 'Unknown host')" ]]; then
+    if [[ "$(hostname -f 2>&1 | grep -w 'Unknown host')" || "$(hostname -f 2>&1 | grep -w 'service not known')" ]]; then
       SERVERHOSTNAME=$(hostname)
     else
       SERVERHOSTNAME=$(hostname -f)
@@ -439,8 +456,8 @@ scl_install() {
         source /opt/rh/devtoolset-6/enable
       fi
     else
-      if [[ -f /opt/rh/devtoolset-4/root/usr/bin/gcc && -f /opt/rh/devtoolset-4/root/usr/bin/g++ ]]; then
-        source /opt/rh/devtoolset-4/enable
+      if [[ -f /opt/rh/devtoolset-6/root/usr/bin/gcc && -f /opt/rh/devtoolset-6/root/usr/bin/g++ ]]; then
+        source /opt/rh/devtoolset-6/enable
       fi
     fi
     if [[ "$(gcc --version | head -n1 | awk '{print $3}' | cut -d . -f1,2 | sed "s|\.|0|")" -lt '407' ]]; then
@@ -469,15 +486,15 @@ scl_install() {
         /opt/rh/devtoolset-6/root/usr/bin/g++ --version
       else
         if [[ -z "$(rpm -qa | grep rpmforge)" ]]; then
-          time $YUMDNFBIN -y -q install devtoolset-4-gcc devtoolset-4-gcc-c++ devtoolset-4-binutils
+          time $YUMDNFBIN -y -q install devtoolset-6-gcc devtoolset-6-gcc-c++ devtoolset-6-binutils
           sar_call
         else
-          time $YUMDNFBIN -y -q install devtoolset-4-gcc devtoolset-4-gcc-c++ devtoolset-4-binutils --disablerepo=rpmforge
+          time $YUMDNFBIN -y -q install devtoolset-6-gcc devtoolset-6-gcc-c++ devtoolset-6-binutils --disablerepo=rpmforge
           sar_call
         fi
         echo
-        /opt/rh/devtoolset-4/root/usr/bin/gcc --version
-        /opt/rh/devtoolset-4/root/usr/bin/g++ --version
+        /opt/rh/devtoolset-6/root/usr/bin/gcc --version
+        /opt/rh/devtoolset-6/root/usr/bin/g++ --version
       fi
     fi
   elif [[ "$CENTOS_SEVEN" = '7' ]]; then
@@ -505,15 +522,15 @@ scl_install() {
         /opt/rh/devtoolset-6/root/usr/bin/g++ --version
       else
         if [[ -z "$(rpm -qa | grep rpmforge)" ]]; then
-          time $YUMDNFBIN -y -q install devtoolset-4-gcc devtoolset-4-gcc-c++ devtoolset-4-binutils
+          time $YUMDNFBIN -y -q install devtoolset-6-gcc devtoolset-6-gcc-c++ devtoolset-6-binutils
           sar_call
         else
-          time $YUMDNFBIN -y -q install devtoolset-4-gcc devtoolset-4-gcc-c++ devtoolset-4-binutils --disablerepo=rpmforge
+          time $YUMDNFBIN -y -q install devtoolset-6-gcc devtoolset-6-gcc-c++ devtoolset-6-binutils --disablerepo=rpmforge
           sar_call
         fi
         echo
-        /opt/rh/devtoolset-4/root/usr/bin/gcc --version
-        /opt/rh/devtoolset-4/root/usr/bin/g++ --version
+        /opt/rh/devtoolset-6/root/usr/bin/gcc --version
+        /opt/rh/devtoolset-6/root/usr/bin/g++ --version
       fi
   fi # centos 6 only needed
 }
@@ -527,8 +544,8 @@ gccdevtools() {
       export CC="/opt/rh/devtoolset-6/root/usr/bin/gcc"
       export CXX="/opt/rh/devtoolset-6/root/usr/bin/g++" 
     else
-      export CC="/opt/rh/devtoolset-4/root/usr/bin/gcc"
-      export CXX="/opt/rh/devtoolset-4/root/usr/bin/g++" 
+      export CC="/opt/rh/devtoolset-6/root/usr/bin/gcc"
+      export CXX="/opt/rh/devtoolset-6/root/usr/bin/g++" 
     fi
   elif [[ "$DEVTOOLSETSIX" = [yY] && -f /opt/rh/devtoolset-6/root/usr/bin/gcc && -f /opt/rh/devtoolset-6/root/usr/bin/g++ ]] && [[ "$(gcc --version | head -n1 | awk '{print $3}' | cut -d . -f1,2 | sed "s|\.|0|")" -lt '407' ]]; then
     unset CC
@@ -550,7 +567,7 @@ source_pcreinstall() {
   if [ -s "$ALTPCRELINKFILE" ]; then
     cecho "$ALTPCRELINKFILE Archive found, skipping download..." $boldgreen
   else
-    wget -c4 --progress=bar "$ALTPCRELINK" --tries=3 
+    wget -c${ipv_forceopt} --progress=bar "$ALTPCRELINK" --tries=3 
     ERROR=$?
     if [[ "$ERROR" != '0' ]]; then
       cecho "Error: $ALTPCRELINKFILE download failed." $boldgreen
@@ -587,7 +604,7 @@ source_wgetinstall() {
   if [ -s "$WGET_FILENAME" ]; then
     cecho "$WGET_FILENAME Archive found, skipping download..." $boldgreen
   else
-    wget -c4 --progress=bar "$WGET_LINK" -O "$WGET_FILENAME" --tries=3 
+    wget -c${ipv_forceopt} --progress=bar "$WGET_LINK" -O "$WGET_FILENAME" --tries=3 
     ERROR=$?
     if [[ "$ERROR" != '0' ]]; then
       cecho "Error: $WGET_FILENAME download failed." $boldgreen
@@ -613,8 +630,11 @@ source_wgetinstall() {
     export CFLAGS="-O2 -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector-strong --param=ssp-buffer-size=4 -grecord-gcc-switches -m64 -mtune=generic"
     export PCRE_CFLAGS="-I /usr/local/include"
     export PCRE_LIBS="-L /usr/local/lib -lpcre"
+    # ensure wget.sh installer utilises system openssl
+    export OPENSSL_CFLAGS="-I /usr/include"
+    export OPENSSL_LIBS="-L /usr/lib64 -lssl -lcrypto"
   else
-    export CFLAGS="-O2 -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector-strong --param=ssp-buffer-size=4 -grecord-gcc-switches -m32 -mtune=generic"
+    export CFLAGS="-O2 -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector-strong --param=ssp-buffer-size=4 -grecord-gcc-switches -mtune=generic"
     export PCRE_CFLAGS="-I /usr/local/include"
     export PCRE_LIBS="-L /usr/local/lib -lpcre"
     if [ -f /root/.wgetrc ]; then
@@ -996,7 +1016,7 @@ if [[ ! -f /usr/bin/git || ! -f /usr/bin/bc || ! -f /usr/bin/wget || ! -f /bin/n
     USER_PKGS=" ipset ipset-devel"
   fi
 
-  time $YUMDNFBIN -y install virt-what python-devel gawk unzip libuuid-devel bc wget lynx screen deltarpm ca-certificates yum-utils bash mlocate subversion rsyslog dos2unix boost-program-options net-tools imake bind-utils libatomic_ops-devel time coreutils autoconf cronie crontabs cronie-anacron gcc gcc-c++ automake libtool make libXext-devel unzip patch sysstat openssh flex bison file libtool-ltdl-devel  krb5-devel libXpm-devel nano gmp-devel aspell-devel numactl lsof pkgconfig gdbm-devel tk-devel bluez-libs-devel iptables* rrdtool diffutils which perl-Test-Simple perl-ExtUtils-Embed perl-ExtUtils-MakeMaker perl-Time-HiRes perl-libwww-perl perl-Crypt-SSLeay perl-Net-SSLeay cyrus-imapd cyrus-sasl-md5 cyrus-sasl-plain strace cmake git net-snmp-libs net-snmp-utils iotop libvpx libvpx-devel t1lib t1lib-devel expect expect-devel readline readline-devel libedit libedit-devel libxslt libxslt-devel openssl openssl-devel curl curl-devel openldap openldap-devel zlib zlib-devel gd gd-devel pcre pcre-devel gettext gettext-devel libidn libidn-devel libjpeg libjpeg-devel libpng libpng-devel freetype freetype-devel libxml2 libxml2-devel glib2 glib2-devel bzip2 bzip2-devel ncurses ncurses-devel e2fsprogs e2fsprogs-devel libc-client libc-client-devel cyrus-sasl cyrus-sasl-devel pam pam-devel libaio libaio-devel libevent libevent-devel recode recode-devel libtidy libtidy-devel net-snmp net-snmp-devel enchant enchant-devel lua lua-devel mailx perl-LWP-Protocol-https OpenEXR-devel OpenEXR-libs atk cups-libs fftw-libs-double fribidi gdk-pixbuf2 ghostscript-devel ghostscript-fonts gl-manpages graphviz gtk2 hicolor-icon-theme ilmbase ilmbase-devel jasper-devel jasper-libs jbigkit-devel jbigkit-libs lcms2 lcms2-devel libICE-devel libSM-devel libXaw libXcomposite libXcursor libXdamage-devel libXfixes-devel libXfont libXi libXinerama libXmu libXrandr libXt-devel libXxf86vm-devel libdrm-devel libfontenc librsvg2 libtiff libtiff-devel libwebp libwebp-devel libwmf-lite mesa-libGL-devel mesa-libGLU mesa-libGLU-devel poppler-data urw-fonts xorg-x11-font-utils${USER_PKGS}${DISABLEREPO_DNF}
+  time $YUMDNFBIN -y install virt-what python-devel gawk unzip pyOpenSSL python-dateutil libuuid-devel bc wget lynx screen deltarpm ca-certificates yum-utils bash mlocate subversion rsyslog dos2unix boost-program-options net-tools imake bind-utils libatomic_ops-devel time coreutils autoconf cronie crontabs cronie-anacron gcc gcc-c++ automake libtool make libXext-devel unzip patch sysstat openssh flex bison file libtool-ltdl-devel  krb5-devel libXpm-devel nano gmp-devel aspell-devel numactl lsof pkgconfig gdbm-devel tk-devel bluez-libs-devel iptables* rrdtool diffutils which perl-Test-Simple perl-ExtUtils-Embed perl-ExtUtils-MakeMaker perl-Time-HiRes perl-libwww-perl perl-Crypt-SSLeay perl-Net-SSLeay cyrus-imapd cyrus-sasl-md5 cyrus-sasl-plain strace cmake git net-snmp-libs net-snmp-utils iotop libvpx libvpx-devel t1lib t1lib-devel expect expect-devel readline readline-devel libedit libedit-devel libxslt libxslt-devel openssl openssl-devel curl curl-devel openldap openldap-devel zlib zlib-devel gd gd-devel pcre pcre-devel gettext gettext-devel libidn libidn-devel libjpeg libjpeg-devel libpng libpng-devel freetype freetype-devel libxml2 libxml2-devel glib2 glib2-devel bzip2 bzip2-devel ncurses ncurses-devel e2fsprogs e2fsprogs-devel libc-client libc-client-devel cyrus-sasl cyrus-sasl-devel pam pam-devel libaio libaio-devel libevent libevent-devel recode recode-devel libtidy libtidy-devel net-snmp net-snmp-devel enchant enchant-devel lua lua-devel mailx perl-LWP-Protocol-https OpenEXR-devel OpenEXR-libs atk cups-libs fftw-libs-double fribidi gdk-pixbuf2 ghostscript-devel ghostscript-fonts gl-manpages graphviz gtk2 hicolor-icon-theme ilmbase ilmbase-devel jasper-devel jasper-libs jbigkit-devel jbigkit-libs lcms2 lcms2-devel libICE-devel libSM-devel libXaw libXcomposite libXcursor libXdamage-devel libXfixes-devel libXfont libXi libXinerama libXmu libXrandr libXt-devel libXxf86vm-devel libdrm-devel libfontenc librsvg2 libtiff libtiff-devel libwebp libwebp-devel libwmf-lite mesa-libGL-devel mesa-libGLU mesa-libGLU-devel poppler-data urw-fonts xorg-x11-font-utils${USER_PKGS}${DISABLEREPO_DNF}
   sar_call
   # allows curl install to skip checking for already installed yum packages 
   # later on in initial curl installations
@@ -1004,16 +1024,16 @@ if [[ ! -f /usr/bin/git || ! -f /usr/bin/bc || ! -f /usr/bin/wget || ! -f /bin/n
   time $YUMDNFBIN -y install epel-release${DISABLEREPO_DNF}
   sar_call
   if [[ "$CENTOS_SEVEN" = '7' ]]; then
-    time $YUMDNFBIN -y install clang clang-devel jemalloc jemalloc-devel python2-pip libmcrypt libmcrypt-devel libraqm figlet moreutils nghttp2 libnghttp2 libnghttp2-devel pngquant optipng jpegoptim pwgen pigz pbzip2 xz pxz lz4 glances bash-completion bash-completion-extras mlocate re2c kernel-headers kernel-devel${DISABLEREPO_DNF} --enablerepo=epel
+    time $YUMDNFBIN -y install clang clang-devel jemalloc jemalloc-devel zstd python2-pip libmcrypt libmcrypt-devel libraqm figlet moreutils nghttp2 libnghttp2 libnghttp2-devel pngquant optipng jpegoptim pwgen pigz pbzip2 xz pxz lz4 glances bash-completion bash-completion-extras mlocate re2c kernel-headers kernel-devel${DISABLEREPO_DNF} --enablerepo=epel
     libc_fix
     if [ -f /usr/bin/pip ]; then
-      pip install --upgrade pip
+      PYTHONWARNINGS=ignore:::pip._internal.cli.base_command pip install --upgrade pip
     fi
     sar_call
   else
-    time $YUMDNFBIN -y install clang clang-devel jemalloc jemalloc-devel python-pip libmcrypt libmcrypt-devel libraqm figlet moreutils nghttp2 libnghttp2 libnghttp2-devel pngquant optipng jpegoptim pwgen pigz pbzip2 xz pxz lz4 libJudy glances bash-completion bash-completion-extras mlocate re2c kernel-headers kernel-devel cmake28 uw-imap-devel${DISABLEREPO_DNF} --enablerepo=epel
+    time $YUMDNFBIN -y install clang clang-devel jemalloc jemalloc-devel zstd python-pip libmcrypt libmcrypt-devel libraqm figlet moreutils nghttp2 libnghttp2 libnghttp2-devel pngquant optipng jpegoptim pwgen pigz pbzip2 xz pxz lz4 libJudy glances bash-completion bash-completion-extras mlocate re2c kernel-headers kernel-devel cmake28 uw-imap-devel${DISABLEREPO_DNF} --enablerepo=epel
     if [ -f /usr/bin/pip ]; then
-      pip install --upgrade pip
+      PYTHONWARNINGS=ignore:::pip._internal.cli.base_command pip install --upgrade pip
     fi
     sar_call
   fi
@@ -1100,10 +1120,10 @@ cd $INSTALLDIR
       getcmstarttime=$(TZ=UTC date +%s.%N)
       echo "git clone Centmin Mod repo..."
       time git clone -b ${branchname} --depth=5 ${CMGIT} centminmod
+      getcmendtime=$(TZ=UTC date +%s.%N)
       sar_call
       cd centminmod
       chmod +x centmin.sh
-      getcmendtime=$(TZ=UTC date +%s.%N)   
     fi
   else
     if [[ ! -f "${DOWNLOAD}" ]]; then
@@ -1112,7 +1132,7 @@ cd $INSTALLDIR
     if [[ -f /usr/local/bin/axel && $AXEL = [yY] ]]; then
       /usr/bin/axel https://github.com/centminmod/centminmod/archive/${DOWNLOAD}
     else
-      wget -c4 --no-check-certificate https://github.com/centminmod/centminmod/archive/${DOWNLOAD} --tries=3
+      wget -c${ipv_forceopt} --no-check-certificate https://github.com/centminmod/centminmod/archive/${DOWNLOAD} --tries=3
     fi
     getcmendtime=$(TZ=UTC date +%s.%N)
     rm -rf centminmod-*
@@ -1124,6 +1144,10 @@ cd $INSTALLDIR
     cd centminmod
     chmod +x centmin.sh
   fi
+  GETCMTIME=$(echo "$getcmendtime - $getcmstarttime" | bc)
+  echo "$GETCMTIME" > "/root/centminlogs/getcmtime_installtime_${DT}.log"
+  GETCMTIME=$(printf "%0.4f\n" $GETCMTIME)
+  echo "$GETCMTIME" >> "/root/centminlogs/getcmtime_installtime_${DT}.log"
 
 # disable nginx lua and luajit by uncommenting these 2 lines
 #sed -i "s|LUAJIT_GITINSTALL='y'|LUAJIT_GITINSTALL='n'|" centmin.sh
@@ -1154,7 +1178,7 @@ cd $INSTALLDIR
 #sed -i "s|PHPREDIS='y'|PHPREDIS='n'|" centmin.sh
 
 # switch from PHP 5.4.41 to 5.6.9 default with Zend Opcache
-PHPVERLATEST=$(curl -s http://php.net/downloads.php | egrep -o "php\-[0-9.]+\.tar[.a-z]*" | grep -v '.asc' | awk -F "php-" '/.tar.gz$/ {print $2}' | sed -e 's|.tar.gz||g' | uniq | grep '7.1' | head -n1)
+PHPVERLATEST=$(curl -${ipv_forceopt}s http://php.net/downloads.php | egrep -o "php\-[0-9.]+\.tar[.a-z]*" | grep -v '.asc' | awk -F "php-" '/.tar.gz$/ {print $2}' | sed -e 's|.tar.gz||g' | uniq | grep '7.1' | head -n1)
 sed -i "s|^PHP_VERSION='.*'|PHP_VERSION='$PHPVERLATEST'|" centmin.sh
 sed -i "s|ZOPCACHEDFT='n'|ZOPCACHEDFT='y'|" centmin.sh
 
@@ -1199,11 +1223,12 @@ rm -rf /etc/centminmod/email-secondary.ini
 }
 
 if [[ "$DEF" = 'novalue' ]]; then
+  {
   # devtoolset SCL repo only supports 64bit OSes
   if [[ "$LOWMEM_INSTALL" != [yY] && "$(uname -m)" = 'x86_64' ]]; then
-    if [[ "$CHECK_LXD" = [yY] ]]; then
+    if [[ "$CHECK_LXD" = [yY] || ! -f /usr/bin/gcc ]]; then
       # lxd containers have minimal default yum packages installed
-      $YUMDNFBIN -y install yum-utils cmake which e2fsprogs e2fsprogs-devel bc libuuid libuuid-devel openssl openssl-devel zlib zlib-devel gd gd-devel net-tools bzip2-devel gmp-devel libXext-devel libidn-devel libtool-ltdl-devel openldap-devel bluez-libs-devel
+      $YUMDNFBIN -y install yum-utils cmake which e2fsprogs e2fsprogs-devel bc libuuid libuuid-devel openssl openssl-devel zlib zlib-devel gd gd-devel net-tools bzip2-devel gmp-devel libXext-devel libidn-devel libtool-ltdl-devel openldap-devel bluez-libs-devel gcc gcc-c++ automake libtool make
       $YUMDNFBIN -y install libcurl libcurl-devel
       yum -y reinstall bzip2 bzip2-devel
       yum -y groupinstall "Development tools"
@@ -1217,13 +1242,11 @@ if [[ "$DEF" = 'novalue' ]]; then
   install_axel
   fileperm_fixes
   cminstall
+} 2>&1 | tee "/root/centminlogs/installer_${DT}.log"
   echo
   FIRSTYUMINSTALLTIME=$(echo "$firstyuminstallendtime - $firstyuminstallstarttime" | bc)
   FIRSTYUMINSTALLTIME=$(printf "%0.4f\n" $FIRSTYUMINSTALLTIME)
-  GETCMTIME=$(echo "$getcmendtime - $getcmstarttime" | bc)
-  echo $GETCMTIME > "/root/centminlogs/getcmtime_installtime_${DT}.log"
-  GETCMTIME=$(printf "%0.4f\n" $GETCMTIME)
-  echo $GETCMTIME >> "/root/centminlogs/getcmtime_installtime_${DT}.log"
+
   #touch ${CENTMINLOGDIR}/firstyum_installtime_${DT}.log
   echo "" > "/root/centminlogs/firstyum_installtime_${DT}.log"
   {
@@ -1250,6 +1273,7 @@ else
   CURLT=$(awk '{print $8}' /root/centminlogs/firstyum_installtime_*.log | tail -1)
 fi
   CT=$(awk '{print $6}' /root/centminlogs/*_install.log | tail -1)
+  GETCMTIME=$(tail -1 /root/centminlogs/getcmtime_installtime_${DT}.log)
   TT=$(echo "$CURLT + $CT + $GETCMTIME" | bc)
   TT=$(printf "%0.4f\n" $TT)
   ST=$(echo "$CT - ($DTIME_SEC + $NTIME_SEC + $PTIME_SEC)" | bc)
@@ -1257,7 +1281,7 @@ fi
   echo "Total YUM or DNF + Source Download Time: $(printf "%0.4f\n" $DTIME_SEC)"
   echo "Total Nginx First Time Install Time: $(printf "%0.4f\n" $NTIME_SEC)"
   echo "Total PHP First Time Install Time: $(printf "%0.4f\n" $PTIME_SEC)"
-  echo "Download Zip From Github Time: $GETCMTIME"
+  echo "Download From Github Time: $GETCMTIME"
   echo "Total Time Other eg. source compiles: $ST"
   echo "Total Centmin Mod Install Time: $CMTIME_SEC"
 echo "---------------------------------------------------------------------------"
@@ -1266,6 +1290,8 @@ echo "--------------------------------------------------------------------------
   echo "$CPUMODEL"; echo "$CPUSPEED"
 echo "---------------------------------------------------------------------------"
 } 2>&1 | tee "/root/centminlogs/install_time_stats_${DT}.log"
+  cat "/root/centminlogs/install_time_stats_${DT}.log" >> "/root/centminlogs/installer_${DT}.log"
+  cat "/root/centminlogs/installer_${DT}.log" | egrep -v 'DOPENSSL_PIC|\/opt\/openssl\/share\/|fpm-build\/libtool|checking for |checking whether |make -f |make\[1\]|make\[2\]|make\[3\]|make\[4\]|make\[5\]' > "/root/centminlogs/installer_${DT}_minimal.log"
   systemstats
 fi
 

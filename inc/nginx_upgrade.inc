@@ -151,6 +151,23 @@ if [ -f "${CM_INSTALLDIR}/inc/z_custom.inc" ]; then
     source "${CM_INSTALLDIR}/inc/z_custom.inc"
 fi
 
+if [ -f "${CONFIGSCANBASE}/custom_config.inc" ]; then
+  OPENSSL_VERSION_CUSTOMCONFIG=$(awk -F "'" '/^OPENSSL_VERSION=/ {print $2}' "${CONFIGSCANBASE}/custom_config.inc")
+  if [[ "${OPENSSL_VERSION}" = '1.1.0j' || "$OPENSSL_VERSION_CUSTOMCONFIG" = '1.1.0j' || "$OPENSSL_VERSION_CUSTOMCONFIG" = '1.1.0i' || "$OPENSSL_VERSION_CUSTOMCONFIG" = '1.1.0h' || "$OPENSSL_VERSION_CUSTOMCONFIG" = '1.1.0g' || "$OPENSSL_VERSION_CUSTOMCONFIG" = '1.1.0f' || "$OPENSSL_VERSION_CUSTOMCONFIG" = '1.1.0e' || "$OPENSSL_VERSION_CUSTOMCONFIG" = '1.1.0d' || "$OPENSSL_VERSION_CUSTOMCONFIG" = '1.1.0c' || "$OPENSSL_VERSION_CUSTOMCONFIG" = '1.1.0b' || "$OPENSSL_VERSION_CUSTOMCONFIG" = '1.1.0a' ]]; then
+    # force old OpenSSL 1.1.0 branch versions to newer
+    # 1.1.1 branch if detected as some folks hardcode override
+    # OPENSSL_VERSION variable in /etc/centminmod/custom_config.inc
+    # and forget to update them and over time they are out of sync
+    # with OPENSSL_VERSION updated and set in centmin.sh
+    #
+    # also OpenSSL 1.1.0j seems to be failing Nginx compiles so this
+    # is a workaround to jump to 1.1.1a working version for now
+    OPENSSL_VERSION="$OPENSSL_VERSION_OLDOVERRIDE"
+    OPENSSL_LINKFILE="openssl-${OPENSSL_VERSION}.tar.gz"
+    OPENSSL_LINK="https://www.openssl.org/source/${OPENSSL_LINKFILE}"
+  fi
+fi
+
 if [[ "$ORESTY_LUANGINX" = [yY] ]]; then
     # lua nginx 0.10.7 and lower not compatible with openssl 1.1.x branch
     # so fall back to 1.0.2 branch if lua nginx module is enabled
@@ -187,11 +204,12 @@ fi
     fi
 
 cecho "Check for old ngx_pagespeed master branch existence" $boldyellow
-if [[ -d "${DIR_TMP}/ngx_pagespeed-release-${NGXPGSPEED_VER}/ngx_pagespeed-master" ]]; then
+if [[ -d "${DIR_TMP}/ngx_pagespeed-release-${NGXPGSPEED_VER}/ngx_pagespeed-master" || -d "${DIR_TMP}/incubator-pagespeed-ngx-master" ]]; then
     # rm -rf ${DIR_TMP}/ngx_pagespeed-release-${NGXPGSPEED_VER}
     rm -rf ${DIR_TMP}/ngx_pagespeed-release-*
     rm -rf ${DIR_TMP}/ngx_pagespeed-*
     rm -rf ${DIR_TMP}/release-1.9.32*
+    rm -rf ${DIR_TMP}/incubator-pagespeed-ngx-master*
     nginxpgspeedtarball
 fi
 
@@ -275,7 +293,7 @@ if [[ "$NGINX_OPENRESTY" = [yY] ]]; then
 
     cecho "Check for openresty modules" $boldyellow    
     # if the tar.gz files don't exist first the tar test directory variables can not be populated
-    if [[ ! -f "${DIR_TMP}/${NGX_MEMCLINKFILE}" || ! -f "${DIR_TMP}/${NGX_SRCACHELINKFILE}"|| ! -f "${DIR_TMP}/${NGX_REDISLINKFILE}" || ! -f "${DIR_TMP}/${NGX_ECHOLINKFILE}" || ! -f "${DIR_TMP}/${NGX_SETMISCLINKFILE}" || ! -f "${DIR_TMP}/${NGX_DEVELKITLINKFILE}" ]]; then
+    if [[ ! -f "${DIR_TMP}/${NGX_MEMCLINKFILE}" || "$(tar -tzf ${DIR_TMP}/${NGX_MEMCLINKFILE} >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ ! -f "${DIR_TMP}/${NGX_SRCACHELINKFILE}" || "$(tar -tzf ${DIR_TMP}/${NGX_SRCACHELINKFILE} >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ ! -f "${DIR_TMP}/${NGX_REDISLINKFILE}" || "$(tar -tzf ${DIR_TMP}/${NGX_REDISLINKFILE} >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ ! -f "${DIR_TMP}/${NGX_ECHOLINKFILE}" || "$(tar -tzf ${DIR_TMP}/${NGX_ECHOLINKFILE} >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ ! -f "${DIR_TMP}/${NGX_SETMISCLINKFILE}" || "$(tar -tzf ${DIR_TMP}/${NGX_SETMISCLINKFILE} >/dev/null 2>&1; echo $?)" -ne '0' ]] || [[ ! -f "${DIR_TMP}/${NGX_DEVELKITLINKFILE}" || "$(tar -tzf ${DIR_TMP}/${NGX_DEVELKITLINKFILE} >/dev/null 2>&1; echo $?)" -ne '0' ]]; then
         openrestytarball
     fi 
     
@@ -374,12 +392,13 @@ if [[ "$UALL" = 'y' ]]; then
 else
     echo ""
     read -ep "Install which version of Nginx? (version i.e. type $NGINX_VERSION): " ngver
+    service nginx reload >/dev/null 2>&1
 
     # if user forgets to type in nginx version and hits
     # enter, ngxver will be empty so should fall back to
     # the nginx version defined by NGINX_VERSION variable
     if [ -z "$ngver" ]; then
-        LASTEST_NGINXVERS=$(curl -4sL https://nginx.org/en/download.html 2>&1 | egrep -o "nginx\-[0-9.]+\.tar[.a-z]*" | awk -F "nginx-" '/.tar.gz$/ {print $2}' | sed -e 's|.tar.gz||g' | head -n 1 2>&1)
+        LASTEST_NGINXVERS=$(curl -${ipv_forceopt}sL https://nginx.org/en/download.html 2>&1 | egrep -o "nginx\-[0-9.]+\.tar[.a-z]*" | awk -F "nginx-" '/.tar.gz$/ {print $2}' | sed -e 's|.tar.gz||g' | head -n 1 2>&1)
         ngver="$LASTEST_NGINXVERS"
     fi
 
@@ -531,42 +550,39 @@ fi
     if [[ -s "nginx-${ngver}.tar.gz" || "$ngver" = 'master' || "$ngver" = 'master-google' ]]; then
         cecho "nginx ${ngver} download found, skipping download..." $boldgreen
     else
-        download_cmd "http://nginx.org/download/nginx-${ngver}.tar.gz" $WGETRETRY
+        download_cmd "https://nginx.org/download/nginx-${ngver}.tar.gz" $WGETRETRY
         NGINXDOWNLOAD_CHECK=$?
         if [[ "$NGINXDOWNLOAD_CHECK" != '0' ]]; then
-            if [ -f "$(which figlet)" ]; then
-                figlet -ckf standard "Nginx Failed Download"
+            wget -c${ipv_forceopt} "https://nginx.org/download/nginx-${ngver}.tar.gz" --tries=3
+            NGINXDOWNLOAD_CHECK=$?
+            if [[ "$NGINXDOWNLOAD_CHECK" != '0' ]]; then
+                if [ -f "$(which figlet)" ]; then
+                    figlet -ckf standard "Nginx Failed Download"
+                fi
+                echo
+                echo "!! Nginx Failed Download !!"
+                echo "try again by running centmin.sh menu option 4"
+                echo "make sure you type the correct nginx version"
+                echo "report errors on the forums at community.centminmod.com/forums/8/"
+            echo
+            free -m
+            echo
+            df -hT
+            echo
+            echo "CPU: $(awk -F ': ' '/^model name/ {print $2}' /proc/cpuinfo | head -n1) ($(grep -c "processor" /proc/cpuinfo))"
+            echo
+            echo "version increment history"
+            tail -5 /etc/centminmod-versionlog
+            if [ -d "${SCRIPT_DIR}/.git" ]; then
+                echo
+                echo "last Centmin Mod local git commit entry"
+                pushd "${SCRIPT_DIR}"
+                git log --numstat --pretty="%n%h %an %aD %n%s" --shortstat -1
+                popd
             fi
-            echo
-            echo "!! Nginx Failed Download !!"
-            echo "try again by running centmin.sh menu option 4"
-            echo "make sure you type the correct nginx version"
-            echo "report errors on the forums at community.centminmod.com/forums/8/"
-        echo
-        free -m
-        echo
-        df -hT
-        echo
-        echo "CPU: $(awk -F ': ' '/^model name/ {print $2}' /proc/cpuinfo | head -n1) ($(grep -c "processor" /proc/cpuinfo))"
-        echo
-        echo "version increment history"
-        tail -5 /etc/centminmod-versionlog
-        if [ -d "${SCRIPT_DIR}/.git" ]; then
-            echo
-            echo "last Centmin Mod local git commit entry"
-            pushd "${SCRIPT_DIR}"
-            git log --numstat --pretty="%n%h %an %aD %n%s" --shortstat -1
-            popd
-        fi
-        if [[ -d "${SCRIPT_DIR}/.git" ]]; then
-            echo
-            echo "last Centmin Mod local git commit entry"
-            pushd "${SCRIPT_DIR}"
-            git log --numstat --pretty="%n%h %an %aD %n%s" --shortstat -1
-            popd
-        fi
-            echo
-            exit
+                echo
+                exit
+            fi
         fi
     fi
 
@@ -652,6 +668,9 @@ fi
             git log --numstat --pretty="%n%h %an %aD %n%s" --shortstat -1
             popd
         fi
+        echo
+        echo "log files saved at ${CENTMINLOGDIR}"
+        ls -lAhrt "${CENTMINLOGDIR}" | grep $DT
         exit
   else
       echo -e "\n`date`\nSuccess: Nginx configure ok\n"
@@ -667,6 +686,12 @@ fi
     # detect OpenSSL 1.1.0 for make -jXX support
     DETECTOPENSSL_ONEZERO=$(echo $OPENSSL_VERSION  | cut -d . -f1-2)
     DETECTOPENSSL_ONEONE=$(echo $OPENSSL_VERSION  | cut -d . -f1-3 | grep -o 1.1.1)
+
+    if [[ "$BORINGSSL_SWITCH" = [yY] ]]; then
+      touch ${BORINGSSL_DIR}/boringssl/.openssl/include/openssl/ssl.h
+      ls -lah ${BORINGSSL_DIR}/boringssl/.openssl/include/openssl/ssl.h
+    fi
+
     if [[ "$LIBRESSL_SWITCH" = [yY] ]]; then
         time make${MAKETHREADS}
     else
@@ -680,7 +705,7 @@ fi
     ERR=$?
     sar_call
 
-    if [[ "$STRIPNGINX" = [yY] ]]; then
+    if [[ "$STRIPNGINX" = [yY] && "$NGINX_DEBUG" != [yY] ]]; then
         if [ -f objs/nginx ]; then
             echo
             echo "strip nginx binary..."
@@ -713,6 +738,9 @@ fi
             git log --numstat --pretty="%n%h %an %aD %n%s" --shortstat -1
             popd
         fi
+        echo
+        echo "log files saved at ${CENTMINLOGDIR}"
+        ls -lAhrt "${CENTMINLOGDIR}" | grep $DT
       exit
   else
      echo -e "\n`date`\nSuccess: Nginx make ok\n"
@@ -806,6 +834,9 @@ fi
         if [ -f objs/autoconf.err ]; then
             cat objs/autoconf.err > "${CENTMINLOGDIR}/nginx_autoconf.err.${DT}.log"
         fi
+        echo
+        echo "log files saved at ${CENTMINLOGDIR}"
+        ls -lAhrt "${CENTMINLOGDIR}" | grep $DT
       exit
   else
         if [ -f objs/autoconf.err ]; then
@@ -986,9 +1017,10 @@ fi
         echo
 
         echo "*************************************************"
-        if [[ "$CLOUDFLARE_ZLIB" = [yY] && "$(cat /proc/cpuinfo | grep -o 'sse4_2' | uniq)" != 'sse4_2' ]]; then
+        CHECK_PCLMUL=$(gcc -c -Q -march=native --help=target | egrep '\[enabled\]|mtune|march' | grep 'mpclmul' | grep -o enabled)
+        if [[ "$CLOUDFLARE_ZLIB" = [yY] && "$(cat /proc/cpuinfo | grep -o 'sse4_2' | uniq)" != 'sse4_2' || "$CHECK_PCLMUL" != 'enabled' ]]; then
             echo
-            cecho "* CLOUDFLARE_ZLIB='y' detected but cpu SSE4.2 support not available" $boldgreen
+            cecho "* CLOUDFLARE_ZLIB='y' detected but cpu SSE4.2 or AES-NI support not available" $boldgreen
             cecho "* Fallback to standard zlib support in Nginx due to SSE4.2 not supported" $boldgreen
             echo
         fi

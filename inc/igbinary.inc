@@ -14,7 +14,7 @@ if [ "$IGBINARYGIT" == 'y' ]; then
 
         IGBINARYSEVEN_LINK='https://github.com/igbinary/igbinary'
         # fallback mirror if official github is down, use gitlab mirror
-        curl -4Is --connect-timeout 5 --max-time 5 $IGBINARYSEVEN_LINK | grep 'HTTP\/' | grep '200' >/dev/null 2>&1
+        curl -${ipv_forceopt}Is --connect-timeout 5 --max-time 5 $IGBINARYSEVEN_LINK | grep 'HTTP\/' | grep '200' >/dev/null 2>&1
         IGBINARYSEVEN_CURLCHECK=$?
         if [[ "$IGBINARYSEVEN_CURLCHECK" != '0' ]]; then
             IGBINARYSEVEN_LINK='https://gitlab.com/centminmod-github-mirror/igbinary.git'
@@ -43,6 +43,18 @@ if [ "$IGBINARYGIT" == 'y' ]; then
         if [[ "$INITIALINSTALL" != [yY] ]]; then
             make clean
         fi
+        if [[ "$CENTOS_SIX" -eq '6' ]]; then
+            # PHP 7.3.0 + centos 6 issue https://community.centminmod.com/posts/69561/
+            if [ ! -f /usr/bin/autoconf268 ]; then
+                echo "yum -q -y install autoconf268"
+                yum -q -y install autoconf268
+            fi
+            if [ -f /usr/bin/autoconf268 ]; then
+                export PHP_AUTOCONF=/usr/bin/autoconf268
+                export PHP_AUTOHEADER=/usr/bin/autoheader268
+            fi
+            autoconf268 -V | head -n1
+        fi
         autoconf -V | head -n1
         /usr/local/bin/phpize -clean
         /usr/local/bin/phpize
@@ -56,7 +68,7 @@ if [ "$IGBINARYGIT" == 'y' ]; then
         if [ -s igbinary-igbinary-1.1.2-dev.tar.gz ]; then
             cecho "igbinary-igbinary-1.1.2-dev.tar.gz Archive found, skipping download..." $boldgreen
         else
-            wget -c4 --progress=bar --no-check-certificate https://github.com/igbinary/igbinary/tarball/master -O igbinary-igbinary-1.1.2-dev.tar.gz --tries=3
+            wget -c${ipv_forceopt} --progress=bar --no-check-certificate https://github.com/igbinary/igbinary/tarball/master -O igbinary-igbinary-1.1.2-dev.tar.gz --tries=3
         fi
     
         tar -xzvf igbinary-igbinary-1.1.2-dev.tar.gz

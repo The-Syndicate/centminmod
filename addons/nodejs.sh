@@ -1,6 +1,13 @@
 #!/bin/bash
 VER='0.0.7'
 ######################################################
+# set locale temporarily to english
+# due to some non-english locale issues
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
+export LC_CTYPE=en_US.UTF-8
+######################################################
 # node.js installer
 # for Centminmod.com
 # written by George Liu (eva2000) centminmod.com
@@ -9,11 +16,12 @@ VER='0.0.7'
 # specify version branch so set NODEJSVER to 4, 5, 6, 7 or 8
 NODEJSVER='8'
 NODEJS_SOURCEINSTALL='y'
-REINSTALL='y'
+NODEJS_REINSTALL='y'
 
 DT=$(date +"%d%m%y-%H%M%S")
 CENTMINLOGDIR='/root/centminlogs'
 DIR_TMP='/svr-setup'
+FORCE_IPVFOUR='y' # curl/wget commands through script force IPv4
 ######################################################
 # Setup Colours
 black='\E[30;40m'
@@ -48,12 +56,6 @@ return
 }
 
 ###########################################
-# set locale temporarily to english
-# due to some non-english locale issues
-export LC_ALL=en_US.UTF-8
-export LANG=en_US.UTF-8
-export LANGUAGE=en_US.UTF-8
-export LC_CTYPE=en_US.UTF-8
 
 shopt -s expand_aliases
 for g in "" e f; do
@@ -90,6 +92,15 @@ if [[ -f /etc/system-release && "$(awk '{print $1,$2,$3}' /etc/system-release)" 
     CENTOS_SIX='6'
 fi
 
+if [ -f /etc/centminmod/custom_config.inc ]; then
+  source /etc/centminmod/custom_config.inc
+fi
+if [[ "$FORCE_IPVFOUR" != [yY] ]]; then
+  ipv_forceopt=""
+else
+  ipv_forceopt='4'
+fi
+
 if [ -f /proc/user_beancounters ]; then
     # CPUS='1'
     # MAKETHREADS=" -j$CPUS"
@@ -108,6 +119,10 @@ if [ -f /proc/user_beancounters ]; then
             # 7401P at 12 cpu cores has 3.0Ghz clock frequency https://en.wikichip.org/wiki/amd/epyc/7401p
             # while greater than 12 cpu cores downclocks to 2.8Ghz
             CPUS=12
+        elif [[ "$(grep -o 'AMD EPYC 7371' /proc/cpuinfo | sort -u)" = 'AMD EPYC 7371' ]]; then
+            # 7371 at 8 cpu cores has 3.8Ghz clock frequency https://en.wikichip.org/wiki/amd/epyc/7371
+            # while greater than 8 cpu cores downclocks to 3.6Ghz
+            CPUS=8
         else
             CPUS=$(echo $(($CPUS+2)))
         fi
@@ -131,6 +146,10 @@ else
             # 7401P at 12 cpu cores has 3.0Ghz clock frequency https://en.wikichip.org/wiki/amd/epyc/7401p
             # while greater than 12 cpu cores downclocks to 2.8Ghz
             CPUS=12
+        elif [[ "$(grep -o 'AMD EPYC 7371' /proc/cpuinfo | sort -u)" = 'AMD EPYC 7371' ]]; then
+            # 7371 at 8 cpu cores has 3.8Ghz clock frequency https://en.wikichip.org/wiki/amd/epyc/7371
+            # while greater than 8 cpu cores downclocks to 3.6Ghz
+            CPUS=8
         else
             CPUS=$(echo $(($CPUS+4)))
         fi
@@ -246,7 +265,7 @@ elif [[ "$CENTOS_SIX" = '6' ]]; then
 	read -ep "Do you want to continue with node.js source install ? [y/n]: " nodecontinue
 	echo
 	if [[ "$nodecontinue" = [yY] && "$NODEJS_SOURCEINSTALL" = [yY] ]]; then
-		if [[ "$(which node >/dev/null 2>&1; echo $?)" != '0' || "$REINSTALL" = [yY] ]]; then
+		if [[ "$(which node >/dev/null 2>&1; echo $?)" != '0' || "$NODEJS_REINSTALL" = [yY] ]]; then
 	
 			if [[ ! -f /opt/rh/devtoolset-4/root/usr/bin/gcc || ! -f /opt/rh/devtoolset-4/root/usr/bin/g++ ]] || [[ ! -f /opt/rh/devtoolset-6/root/usr/bin/gcc || ! -f /opt/rh/devtoolset-6/root/usr/bin/g++ ]]; then
 				scl_install
@@ -276,7 +295,7 @@ elif [[ "$CENTOS_SIX" = '6' ]]; then
     		if [ -s node-v${NODEJSVER}.tar.gz ]; then
         		cecho "node-v${NODEJSVER}.tar.gz Archive found, skipping download..." $boldgreen
     		else
-        		wget -c4 --progress=bar http://nodejs.org/dist/v${NODEJSVER}/node-v${NODEJSVER}.tar.gz --tries=3 
+        		wget -c${ipv_forceopt} --progress=bar https://nodejs.org/dist/v${NODEJSVER}/node-v${NODEJSVER}.tar.gz --tries=3 
 		ERROR=$?
 			if [[ "$ERROR" != '0' ]]; then
 			cecho "Error: node-v${NODEJSVER}.tar.gz download failed." $boldgreen

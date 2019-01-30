@@ -1,3 +1,22 @@
+dft_phpupstream() {
+cat > "/usr/local/nginx/conf/default_phpupstream.conf"<<EOF
+upstream dft_php {
+  zone dftphp_zone 128k;
+  server 127.0.0.1:9000;
+  keepalive 2;
+}
+EOF
+
+  DFT_SETUPPHPUPSTREAM_INCLUDECHECK=$(grep '\/usr\/local\/nginx\/conf\/default_phpupstream.conf' /usr/local/nginx/conf/nginx.conf)
+  if [[ -z "$DFT_SETUPPHPUPSTREAM_INCLUDECHECK" ]]; then
+    # echo
+    # echo "include file /usr/local/nginx/conf/default_phpupstream.conf add to nginx.conf"
+    sed -i 's|\/usr\/local\/nginx\/conf\/fastcgi_param_https_map.conf;|\/usr\/local\/nginx\/conf\/fastcgi_param_https_map.conf;\ninclude \/usr\/local\/nginx\/conf\/default_phpupstream.conf;|g' /usr/local/nginx/conf/nginx.conf
+    service nginx restart >/dev/null 2>&1
+    service nginx php-fpm >/dev/null 2>&1
+  fi
+}
+
 redetect_tlsonethree() {
   # persistent config file /etc/centminmod/custom_config.inc
   # variable OPENSSL_TLSONETHREE controls whether OpenSSL 1.1.1
@@ -5,42 +24,51 @@ redetect_tlsonethree() {
   # OPENSSL_TLSONETHREE='y' enabled
   # OPENSSL_TLSONETHREE='n' disabled
   # https://community.centminmod.com/posts/63238/
+  if [[ "$DISABLE_TLSONEZERO_PROTOCOL" = [yY] ]]; then
+    TLSONEONEPROTOCOL_OPT=""
+  else
+    TLSONEONEPROTOCOL_OPT='TLSv1 '
+  fi
   if [ -f /usr/local/nginx/conf/ssl-include.conf ]; then
     if [[ "$OPENSSL_TLSONETHREE" = [yY] ]]; then
       # Nginx supports TLS 1.3 ssl_protocols directive
-      if [[ "$(grep -w 'ssl_protocols  TLSv1 TLSv1.1 TLSv1.2;' /usr/local/nginx/conf/ssl-include.conf)" ]]; then
-        sed -i 's|ssl_protocols .*|ssl_protocols  TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;|' /usr/local/nginx/conf/ssl-include.conf
+      if [[ "$(grep -w "ssl_protocols  TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;" /usr/local/nginx/conf/ssl-include.conf)" ]]; then
+        sed -i "s|ssl_protocols .*|ssl_protocols  ${TLSONEONEPROTOCOL_OPT}TLSv1.1 TLSv1.2 TLSv1.3;|" /usr/local/nginx/conf/ssl-include.conf
+      elif [[ "$(grep -w "ssl_protocols  ${TLSONEONEPROTOCOL_OPT}TLSv1.1 TLSv1.2;" /usr/local/nginx/conf/ssl-include.conf)" ]]; then
+        sed -i "s|ssl_protocols .*|ssl_protocols  ${TLSONEONEPROTOCOL_OPT}TLSv1.1 TLSv1.2 TLSv1.3;|" /usr/local/nginx/conf/ssl-include.conf
       elif [[ "$(grep -w 'ssl_protocols  TLSv1.1 TLSv1.2;' /usr/local/nginx/conf/ssl-include.conf)" ]]; then
-        sed -i 's|ssl_protocols .*|ssl_protocols  TLSv1.1 TLSv1.2 TLSv1.3;|' /usr/local/nginx/conf/ssl-include.conf
+        sed -i "s|ssl_protocols .*|ssl_protocols  TLSv1.1 TLSv1.2 TLSv1.3;|" /usr/local/nginx/conf/ssl-include.conf
       elif [[ "$(grep -w 'ssl_protocols  TLSv1.2;' /usr/local/nginx/conf/ssl-include.conf)" ]]; then
-        sed -i 's|ssl_protocols .*|ssl_protocols  TLSv1.2 TLSv1.3;|' /usr/local/nginx/conf/ssl-include.conf
+        sed -i "s|ssl_protocols .*|ssl_protocols  TLSv1.2 TLSv1.3;|" /usr/local/nginx/conf/ssl-include.conf
       fi
     else
-      if [[ "$(grep -w 'ssl_protocols  TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;' /usr/local/nginx/conf/ssl-include.conf)" ]]; then
-        sed -i 's|ssl_protocols .*|ssl_protocols  TLSv1 TLSv1.1 TLSv1.2;|' /usr/local/nginx/conf/ssl-include.conf
+      if [[ "$(grep -w "ssl_protocols  ${TLSONEONEPROTOCOL_OPT}TLSv1.1 TLSv1.2 TLSv1.3;" /usr/local/nginx/conf/ssl-include.conf)" ]]; then
+        sed -i "s|ssl_protocols .*|ssl_protocols  ${TLSONEONEPROTOCOL_OPT}TLSv1.1 TLSv1.2;|" /usr/local/nginx/conf/ssl-include.conf
       elif [[ "$(grep -w 'ssl_protocols  TLSv1.1 TLSv1.2 TLSv1.3;' /usr/local/nginx/conf/ssl-include.conf)" ]]; then
-        sed -i 's|ssl_protocols .*|ssl_protocols  TLSv1.1 TLSv1.2;|' /usr/local/nginx/conf/ssl-include.conf
+        sed -i "s|ssl_protocols .*|ssl_protocols  TLSv1.1 TLSv1.2;|" /usr/local/nginx/conf/ssl-include.conf
       elif [[ "$(grep -w 'ssl_protocols  TLSv1.2 TLSv1.3;' /usr/local/nginx/conf/ssl-include.conf)" ]]; then
-        sed -i 's|ssl_protocols .*|ssl_protocols  TLSv1.2;|' /usr/local/nginx/conf/ssl-include.conf
+        sed -i "s|ssl_protocols .*|ssl_protocols  TLSv1.2;|" /usr/local/nginx/conf/ssl-include.conf
       fi
     fi
   elif [ -f /usr/local/nginx/conf/ssl_include.conf ]; then
     if [[ "$OPENSSL_TLSONETHREE" = [yY] ]]; then
       # Nginx supports TLS 1.3 ssl_protocols directive
-      if [[ "$(grep -w 'ssl_protocols  TLSv1 TLSv1.1 TLSv1.2;' /usr/local/nginx/conf/ssl_include.conf)" ]]; then
-        sed -i 's|ssl_protocols .*|ssl_protocols  TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;|' /usr/local/nginx/conf/ssl_include.conf
+      if [[ "$(grep -w "ssl_protocols  TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;" /usr/local/nginx/conf/ssl_include.conf)" ]]; then
+        sed -i "s|ssl_protocols .*|ssl_protocols  ${TLSONEONEPROTOCOL_OPT}TLSv1.1 TLSv1.2 TLSv1.3;|" /usr/local/nginx/conf/ssl_include.conf
+      elif [[ "$(grep -w "ssl_protocols  ${TLSONEONEPROTOCOL_OPT}TLSv1.1 TLSv1.2;" /usr/local/nginx/conf/ssl_include.conf)" ]]; then
+        sed -i "s|ssl_protocols .*|ssl_protocols  ${TLSONEONEPROTOCOL_OPT}TLSv1.1 TLSv1.2 TLSv1.3;|" /usr/local/nginx/conf/ssl_include.conf
       elif [[ "$(grep -w 'ssl_protocols  TLSv1.1 TLSv1.2;' /usr/local/nginx/conf/ssl_include.conf)" ]]; then
-        sed -i 's|ssl_protocols .*|ssl_protocols  TLSv1.1 TLSv1.2 TLSv1.3;|' /usr/local/nginx/conf/ssl_include.conf
+        sed -i "s|ssl_protocols .*|ssl_protocols  TLSv1.1 TLSv1.2 TLSv1.3;|" /usr/local/nginx/conf/ssl_include.conf
       elif [[ "$(grep -w 'ssl_protocols  TLSv1.2;' /usr/local/nginx/conf/ssl_include.conf)" ]]; then
-        sed -i 's|ssl_protocols .*|ssl_protocols  TLSv1.2 TLSv1.3;|' /usr/local/nginx/conf/ssl_include.conf
+        sed -i "s|ssl_protocols .*|ssl_protocols  TLSv1.2 TLSv1.3;|" /usr/local/nginx/conf/ssl_include.conf
       fi
     else
-      if [[ "$(grep -w 'ssl_protocols  TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;' /usr/local/nginx/conf/ssl_include.conf)" ]]; then
-        sed -i 's|ssl_protocols .*|ssl_protocols  TLSv1 TLSv1.1 TLSv1.2;|' /usr/local/nginx/conf/ssl_include.conf
+      if [[ "$(grep -w "ssl_protocols  ${TLSONEONEPROTOCOL_OPT}TLSv1.1 TLSv1.2 TLSv1.3;" /usr/local/nginx/conf/ssl_include.conf)" ]]; then
+        sed -i "s|ssl_protocols .*|ssl_protocols  ${TLSONEONEPROTOCOL_OPT}TLSv1.1 TLSv1.2;|" /usr/local/nginx/conf/ssl_include.conf
       elif [[ "$(grep -w 'ssl_protocols  TLSv1.1 TLSv1.2 TLSv1.3;' /usr/local/nginx/conf/ssl_include.conf)" ]]; then
-        sed -i 's|ssl_protocols .*|ssl_protocols  TLSv1.1 TLSv1.2;|' /usr/local/nginx/conf/ssl_include.conf
+        sed -i "s|ssl_protocols .*|ssl_protocols  TLSv1.1 TLSv1.2;|" /usr/local/nginx/conf/ssl_include.conf
       elif [[ "$(grep -w 'ssl_protocols  TLSv1.2 TLSv1.3;' /usr/local/nginx/conf/ssl_include.conf)" ]]; then
-        sed -i 's|ssl_protocols .*|ssl_protocols  TLSv1.2;|' /usr/local/nginx/conf/ssl_include.conf
+        sed -i "s|ssl_protocols .*|ssl_protocols  TLSv1.2;|" /usr/local/nginx/conf/ssl_include.conf
       fi
     fi
   fi
@@ -135,39 +163,58 @@ pip_updates() {
   if [[ ! -f /usr/bin/python-config ]]; then
     $YUMDNFBIN -q -y install python-devel
   fi
-  if [ ! -f /usr/bin/pip ]; then
-    if [[ "CENTOS_SEVEN" -eq '7' ]]; then
-      $YUMDNFBIN -q -y install python2-pip
+  if [[ "$CENTOS_SEVEN" -eq '7' && ! -f /usr/bin/pip ]] || [[ "$CENTOS_SIX" -eq '6' &&  ! -f /usr/bin/pip2.7 ]]; then
+    if [[ "$CENTOS_SEVEN" -eq '7' ]]; then
+      $YUMDNFBIN -q -y install python2-pip >/dev/null 2>&1
+      yum -q -y versionlock python2-pip >/dev/null 2>&1
       export CC='gcc'
-      pip install -qqq --upgrade pip
+      PYTHONWARNINGS=ignore:::pip._internal.cli.base_command pip install -qqq --upgrade pip
     else
-      $YUMDNFBIN -q -y install python-pip
+      $YUMDNFBIN -q -y install python-pip >/dev/null 2>&1
+      yum -q -y versionlock python-pip >/dev/null 2>&1
       export CC='gcc'
-      pip install -qqq --upgrade pip
+      PYTHONWARNINGS=ignore:::pip._internal.cli.base_command pip install -qqq --upgrade pip
+      if [[ "$CENTOS_SIX" -eq '6' && -f "${SCRIPT_DIR}/addons/python27_install.sh" && ! -f /usr/bin/pip2.7 ]]; then
+        "${SCRIPT_DIR}/addons/python27_install.sh" install
+        PYTHONWARNINGS=ignore:::pip._internal.cli.base_command pip2.7 install -qqq --upgrade pip
+        PYTHONWARNINGS=ignore:::pip._internal.cli.base_command pip2.7 install -qqq --upgrade psutil
+        PYTHONWARNINGS=ignore:::pip._internal.cli.base_command pip2.7 install -qqq --upgrade glances
+        echo
+        echo "CentOS 6 python 2.7 compatibility updates completed"
+        echo
+      fi
     fi
-  elif [ -f /usr/bin/pip ]; then
-    CHECK_PIPVER=$(pip show pip 2>&1 | awk '/^Version: / {print $2}' | sed -e 's|\.||g')
+  elif [[ "$CENTOS_SIX" -eq '6' && -f /usr/bin/pip2.7 ]]; then
+    CHECK_PIPVER=$(PYTHONWARNINGS=ignore:::pip._internal.cli.base_command pip show pip 2>&1 | awk '/^Version: / {print $2}' | sed -e 's|\.|0|g')
+    if [[ "$CHECK_PIPVER" -lt '1801' ]]; then
+      PYTHONWARNINGS=ignore:::pip._internal.cli.base_command pip2.7 install -qqq --upgrade pip
+    fi
+  elif [[ "$CENTOS_SEVEN" -eq '7' && -f /usr/bin/pip ]]; then
+    CHECK_PIPVER=$(PYTHONWARNINGS=ignore:::pip._internal.cli.base_command pip show pip 2>&1 | awk '/^Version: / {print $2}' | sed -e 's|\.||g')
     if [[ "$CHECK_PIPVER" -lt '901' ]]; then
-      pip install -qqq --upgrade pip
+      PYTHONWARNINGS=ignore:::pip._internal.cli.base_command pip install -qqq --upgrade pip
     fi
   fi
-  if [[ -f /usr/bin/pip && -f /usr/bin/python-config ]]; then
-    # CHECK_PSUTILVER=$(pip show psutil 2>&1  | awk '/^Version:/ {print $2}' | sed -e 's|\.||g')
-    # CHECK_GLANCESVER=$(pip show glances 2>&1  | awk '/^Version:/ {print $2}' | sed -e 's|\.||g')
-    CHECK_PIPUPDATE=$(pip list -o --format legacy | grep -o pip)
-    CHECK_PSUTILUPDATE=$(pip list -o --format legacy | grep -o psutil)
-    CHECK_GLANCESUPDATE=$(pip list -o --format legacy | grep -io glances)
+  if [[ "$CENTOS_SEVEN" -eq '7' && -f /usr/bin/pip && -f /usr/bin/python-config ]]; then
+    CHECK_PIPALL_UPDATES=$(PYTHONWARNINGS=ignore:::pip._internal.cli.base_command pip list -o --format columns)
+    CHECK_PIPUPDATE=$(echo "$CHECK_PIPALL_UPDATES" | grep -o pip)
+    CHECK_PSUTILUPDATE=$(echo "$CHECK_PIPALL_UPDATES" | grep -o psutil)
+    CHECK_GLANCESUPDATE=$(echo "$CHECK_PIPALL_UPDATES" | grep -io glances)
     if [[ "$CHECK_PIPUPDATE" = 'pip' ]]; then
       export CC='gcc'
-      pip install -qqq --upgrade pip
+      PYTHONWARNINGS=ignore:::pip._internal.cli.base_command pip install -qqq --upgrade pip
+      yum -q -y versionlock python2-pip >/dev/null 2>&1
     fi
     if [[ "$CHECK_PSUTILUPDATE" = 'psutil' ]]; then
       export CC='gcc'
-      pip install -qqq --upgrade psutil
+      if [[ "$(rpm -qa python2-psutil | grep -o python2-psutil)" = 'python2-psutil' ]]; then
+        yum -q -y remove python2-psutil >/dev/null 2>&1
+      fi
+      PYTHONWARNINGS=ignore:::pip._internal.cli.base_command pip install -qqq --upgrade psutil
     fi
     if [[ "$CHECK_GLANCESUPDATE" = 'Glances' ]]; then
       export CC='gcc'
-      pip install -qqq --upgrade glances
+      PYTHONWARNINGS=ignore:::pip._internal.cli.base_command pip install -qqq --upgrade glances
     fi
   fi
 }
@@ -179,10 +226,11 @@ fix_phperrorlogperm() {
 }
 
 march_hostcheck() {
-  # if linode kernel/host detected set disable GCC march=native
-  # as linode vps can switch host nodes with differing cpu models
-  # causing seg faults for nginx and php-fpm
-  if [[ "$(uname -r | grep -o 'linode')" ]]; then
+  # smarter detection of cloud vps providers who run a mix of different
+  # cpu models to prevent issues when you switch host nodes with differing 
+  # cpu models causing seg faults for nginx and php-fpm
+  VPS_ASNCHECK=$(curl -s https://ipinfo.io/org)
+  if [[ "$(echo "${VPS_ASNCHECK}" | egrep -i -o 'linode|digitalocean|vultr|choopa')" && "$MARCH_TARGETNATIVE_ALWAYS" != [yY] ]]; then
     MARCH_TARGETNATIVE='n'
     if [[ -f /etc/centminmod/custom_config.inc && ! "$(grep 'MARCH_TARGETNATIVE' /etc/centminmod/custom_config.inc)" ]]; then
       echo "MARCH_TARGETNATIVE='n'" >> /etc/centminmod/custom_config.inc
@@ -227,8 +275,8 @@ nginxlargefile_fix() {
       sed -i 's|send_timeout     30s;|send_timeout     60s;|' /usr/local/nginx/conf/nginx.conf
       nginxfix_count=$(($nginxfix_count+1))
     fi
-    if [[ "$(grep -w 'client_body_timeout 10s;' /usr/local/nginx/conf/nginx.conf)" ]]; then
-      sed -i 's|client_body_timeout 10s;|client_body_timeout 60s;|' /usr/local/nginx/conf/nginx.conf
+    if [[ "$(grep -w 'client_body_timeout 60s;' /usr/local/nginx/conf/nginx.conf)" ]]; then
+      sed -i 's|client_body_timeout 60s;|client_body_timeout 10s;|' /usr/local/nginx/conf/nginx.conf
       nginxfix_count=$(($nginxfix_count+1))
     fi
     if [[ "$(grep -w 'client_header_timeout  5s;' /usr/local/nginx/conf/nginx.conf)" ]]; then
@@ -321,11 +369,11 @@ varnishfour_setup() {
       yum_repo_path=$VARNISH_REPOFILE
       yum_repo_config_url="https://packagecloud.io/install/repositories/varnishcache/varnish41/config_file.repo?os=${os}&dist=${dist}&source=script"
       if [[ "$CENTOS_SEVEN" -eq '7' || "$CENTOS_SIX" -eq '6' ]]; then
-          curl -4Is --connect-timeout 5 --max-time 5 "${yum_repo_config_url}" | grep 'HTTP\/' | grep '200' >/dev/null 2>&1
+          curl -${ipv_forceopt}Is --connect-timeout 5 --max-time 5 "${yum_repo_config_url}" | grep 'HTTP\/' | grep '200' >/dev/null 2>&1
           VARNISHFOUR_CURLCHECK=$?
           if [[ "$VARNISHFOUR_CURLCHECK" = '0' ]]; then
             echo "update varnish cache 4.1 yum repo config"
-            curl -4sSf "${yum_repo_config_url}" > $yum_repo_path
+            curl -${ipv_forceopt}sSf "${yum_repo_config_url}" > $yum_repo_path
             # yum -q makecache -y --disablerepo='*' --enablerepo='varnishcache_varnish41'
             if [ -f /etc/yum.repos.d/varnish-4.1.repo ]; then
                 rm -rf /etc/yum.repos.d/varnish-4.1.repo
@@ -492,8 +540,11 @@ update_nginxconf() {
     if [[ "$NGX_WRKCON" -eq '4096' || "$NGX_WRKCON" -eq '10000' ]]; then
       sed -i 's|worker_connections .*|worker_connections  50000;|' /usr/local/nginx/conf/nginx.conf
     fi
+    if [[ "$(echo $NGX_KT | grep -o 's')" = 's' ]]; then
+      NGX_KT=$(echo $NGX_KT | sed -e 's|s||g')
+    fi
     if [[ "$NGX_KT" -eq '8' ]]; then
-      sed -i 's|keepalive_timeout .*|keepalive_timeout  5;|' /usr/local/nginx/conf/nginx.conf
+      sed -i 's|keepalive_timeout .*|keepalive_timeout  5s;|' /usr/local/nginx/conf/nginx.conf
     fi
   fi
 }
@@ -502,7 +553,7 @@ checkipvsix() {
   # set via persistent config file at
   # /etc/centminmod/custom_config.inc as outlined on 
   # official site at 
-  # http://centminmod.com/upgrade.html#persistent to
+  # https://centminmod.com/upgrade.html#persistent to
   # override defaults
   # disable system IPv6 support
   # https://wiki.centos.org/FAQ/CentOS7#head-8984faf811faccca74c7bcdd74de7467f2fcd8ee
@@ -863,9 +914,9 @@ gitenv_askupdate() {
       # https://github.com/centminmod/centminmod/raw/${branchname}/giturl.txt
       # check if you can properly resolve raw.githubusercontent.com first in case of dns outpages
       # issues at github end https://community.centminmod.com/threads/centmin-mod-github-com-repo-504-timeouts.9232/
-      CURL_GITURLCHECKER=$(curl -s4 https://raw.githubusercontent.com/centminmod/centminmod/${branchname}/giturl.txt >/dev/null 2>&1; echo $?)
+      CURL_GITURLCHECKER=$(curl -s${ipv_forceopt} https://raw.githubusercontent.com/centminmod/centminmod/${branchname}/giturl.txt >/dev/null 2>&1; echo $?)
       if [[ "$CURL_GITURLCHECKER" = '0' ]]; then
-        CURL_GITURL=$(curl -s4 https://raw.githubusercontent.com/centminmod/centminmod/${branchname}/giturl.txt)
+        CURL_GITURL=$(curl -s${ipv_forceopt} https://raw.githubusercontent.com/centminmod/centminmod/${branchname}/giturl.txt)
       else
         # just default to https://github.com/centminmod/centminmod.git if can not resolve the
         # https://raw.githubusercontent.com/centminmod/centminmod/${branchname}/giturl.txt
@@ -963,7 +1014,7 @@ set_logdate() {
 
 ngxver_checker() {
   if [[ "$(which nginx >/dev/null 2>&1; echo $?)" = '0' ]]; then
-    LASTEST_NGINXVERS=$(curl -4sL https://nginx.org/en/download.html 2>&1 | egrep -o "nginx\-[0-9.]+\.tar[.a-z]*" | awk -F "nginx-" '/.tar.gz$/ {print $2}' | sed -e 's|.tar.gz||g' | head -n 1 2>&1)
+    LASTEST_NGINXVERS=$(curl -${ipv_forceopt}sL https://nginx.org/en/download.html 2>&1 | egrep -o "nginx\-[0-9.]+\.tar[.a-z]*" | awk -F "nginx-" '/.tar.gz$/ {print $2}' | sed -e 's|.tar.gz||g' | head -n 1 2>&1)
     CURRENT_NGINXVERS=$(nginx -v 2>&1 | awk -F '/' '{print $2}')
     if [[ "$CURRENT_NGINXVERS" != "$LASTEST_NGINXVERS" ]]; then
       echo
@@ -1039,7 +1090,7 @@ yumupdatechecker() {
     fi
     if [[ "$UPDATE_CHECK" = '100' ]]; then
       echo
-      if [[ "$(hostname -f 2>&1 | grep -w 'Unknown host')" ]]; then
+      if [[ "$(hostname -f 2>&1 | grep -w 'Unknown host')" || "$(hostname -f 2>&1 | grep -w 'service not known')" ]]; then
         SERVERHOSTNAME=$(hostname)
       else
         SERVERHOSTNAME=$(hostname -f)
@@ -1874,7 +1925,7 @@ ovhkernelcheck() {
     # Intel Xeon D-15xx Broadwell-DE processors which need
     # OVH custom kernel for the newer Intel network NIC support
     # Intel Corporation Ethernet Connection X552/X557-AT 10GBASE-T
-    OVHASNCHECK=$(curl -4s${CURL_TIMEOUTS} https://ipinfo.io/org | grep -o 'OVH' >/dev/null 2>&1; echo $?)
+    OVHASNCHECK=$(curl -${ipv_forceopt}s${CURL_TIMEOUTS} https://ipinfo.io/org | grep -o 'OVH' >/dev/null 2>&1; echo $?)
     OVHKERNEL_CHECK=$(uname -r | grep '\-grs' >/dev/null 2>&1; echo $?)
     BROADWELLDE_CHECK=$(grep 'Xeon(R) CPU D-15' /proc/cpuinfo >/dev/null 2>&1; echo $?)
     # more sure way to check for OVH custom kernel if /root/.ovhrc file exists
@@ -2410,7 +2461,7 @@ if [[ "$INITIALINSTALL" != [yY] ]]; then
   nginxlargefile_fix
   fix_phperrorlogperm
   crontabdisable_r
-  # pip_updates
+  pip_updates
   ngx_gzipbuffersfix
   ngx_brotlibuffersfix
   ngxmaster_openfiles
@@ -2420,6 +2471,7 @@ if [[ "$INITIALINSTALL" != [yY] ]]; then
   disable_varnishrepo
   pzcat_install
   redetect_tlsonethree
+  dft_phpupstream
 fi
 
 }

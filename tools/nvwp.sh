@@ -1,5 +1,12 @@
 #!/bin/bash
 ###############################################################
+# set locale temporarily to english
+# due to some non-english locale issues
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
+export LC_CTYPE=en_US.UTF-8
+###############################################################
 # standalone nginx vhost creation script for centminmod.com
 # .09 beta01 and higher written by George Liu
 # modified for wordpress setup
@@ -14,9 +21,9 @@ CENTMINLOGDIR='/root/centminlogs'
 DT=$(date +"%d%m%y-%H%M%S")
 CURL_TIMEOUTS=' --max-time 5 --connect-timeout 5'
 DIR_TMP=/svr-setup
-OPENSSL_VERSION=$(awk -F "'" /'^OPENSSL_VERSION/ {print $2}' $CUR_DIR/centmin.sh)
+OPENSSL_VERSION=$(awk -F "'" /'^OPENSSL_VERSION=/ {print $2}' $CUR_DIR/centmin.sh)
 # CURRENTIP=$(echo $SSH_CLIENT | awk '{print $1}')
-# CURRENTCOUNTRY=$(curl -4s${CURL_TIMEOUTS} https://ipinfo.io/$CURRENTIP/country)
+# CURRENTCOUNTRY=$(curl -${ipv_forceopt}s${CURL_TIMEOUTS} https://ipinfo.io/$CURRENTIP/country)
 SCRIPT_DIR=$(readlink -f $(dirname ${BASH_SOURCE[0]}))
 LOGPATH="${CENTMINLOGDIR}/centminmod_${DT}_nginx_addvhost_nvwp.log"
 USE_NGINXMAINEXTLOGFORMAT='n'
@@ -53,13 +60,6 @@ color=$2
 echo -e "$color$message" ; $Reset
 return
 }
-###############################################################
-# set locale temporarily to english
-# due to some non-english locale issues
-export LC_ALL=en_US.UTF-8
-export LANG=en_US.UTF-8
-export LANGUAGE=en_US.UTF-8
-export LC_CTYPE=en_US.UTF-8
 
 shopt -s expand_aliases
 for g in "" e f; do
@@ -695,8 +695,8 @@ server {
 #include /usr/local/nginx/conf/pagespeedstatslog.conf;
 
   #add_header X-Frame-Options SAMEORIGIN;
-  #add_header X-Xss-Protection "1; mode=block" always;
-  #add_header X-Content-Type-Options "nosniff" always;
+  add_header X-Xss-Protection "1; mode=block" always;
+  add_header X-Content-Type-Options "nosniff" always;
   #add_header Referrer-Policy "strict-origin-when-cross-origin";
 
   # limit_conn limit_per_ip 16;
@@ -791,15 +791,15 @@ server {
   # before enabling HSTS line below read centminmod.com/nginx_domain_dns_setup.html#hsts
   #add_header Strict-Transport-Security "max-age=31536000; includeSubdomains;";
   #add_header X-Frame-Options SAMEORIGIN;
-  #add_header X-Xss-Protection "1; mode=block" always;
-  #add_header X-Content-Type-Options "nosniff" always;
+  add_header X-Xss-Protection "1; mode=block" always;
+  add_header X-Content-Type-Options "nosniff" always;
   #add_header Referrer-Policy "strict-origin-when-cross-origin";
   $COMP_HEADER;
   ssl_buffer_size 1369;
   ssl_session_tickets on;
   
   # enable ocsp stapling
-  #resolver 8.8.8.8 8.8.4.4 valid=10m;
+  #resolver 8.8.8.8 8.8.4.4 1.1.1.1 1.0.0.1 valid=10m;
   #resolver_timeout 10s;
   #ssl_stapling on;
   #ssl_stapling_verify on;
@@ -892,8 +892,8 @@ server {
 #include /usr/local/nginx/conf/pagespeedstatslog.conf;
 
   #add_header X-Frame-Options SAMEORIGIN;
-  #add_header X-Xss-Protection "1; mode=block" always;
-  #add_header X-Content-Type-Options "nosniff" always;
+  add_header X-Xss-Protection "1; mode=block" always;
+  add_header X-Content-Type-Options "nosniff" always;
   #add_header Referrer-Policy "strict-origin-when-cross-origin";
 
   # limit_conn limit_per_ip 16;
@@ -983,10 +983,6 @@ location ~ ^${WPSUBDIR}/(wp-includes/js/tinymce/wp-tinymce.php) {
   # whitelist php processing access at /usr/local/nginx/conf/wpincludes/${vhostname}/wpsecure_${vhostname}.conf
   #include /usr/local/nginx/conf/wpincludes/${vhostname}/wpwhitelist_common.conf;
 }
-
-# Deny access to any files with a .php extension in the uploads directory
-# Works in sub-directory installs and also in multisite network
-location ~* ${WPSUBDIR}/(?:uploads|files)/.*\.php\$ { deny all; }
 
 # Whitelist Exception for https://wordpress.org/plugins/onesignal-free-web-push-notifications//
 location ~ ^${WPSUBDIR}/wp-content/plugins/onesignal-free-web-push-notifications/ {
@@ -1448,7 +1444,7 @@ if (\$query_string != "") { set \$cache_uri 'null cache'; }
 
 if (\$request_uri ~* "/(\?add-to-cart=|cart/|my-account/|checkout/|shop/checkout/|store/checkout/|customer-dashboard/|addons/|wp-admin/.*|xmlrpc\.php|wp-.*\.php|index\.php|feed/|sitemap(_index)?\.xml|[a-z0-9_-]+-sitemap([0-9]+)?\.xml)") { set \$cache_uri 'null cache'; }
 
-if (\$http_cookie ~* "comment_author|wordpress_[a-f0-9]+|wp-postpass|wordpress_logged_in|edd_items_in_cart|woocommerce_items_in_cart|woocommerce_cart_hash|woocommerce_recently_viewed|wc_session_cookie_HASH|wp_woocommerce_session_|wptouch_switch_toogle") { set \$cache_uri 'null cache'; }
+if (\$http_cookie ~* "comment_author|wordpress_[a-f0-9]+|wp-postpass|wordpress_logged_in|edd_items_in_cart|woocommerce_items_in_cart|woocommerce_cart_hash|woocommerce_recently_viewed|wc_session_cookie_HASH|wp_woocommerce_session_|wptouch_switch_toggle") { set \$cache_uri 'null cache'; }
 EFF
 
 ######### Wordpress Manual Install no WP-CLI ######################
@@ -1463,7 +1459,7 @@ if [[ -d "/home/nginx/domains/${vhostname}/public" ]]; then
 
   # download wordpress latest zip
   rm -rf latest.zip
-  wget -4 -cnv https://wordpress.org/latest.zip
+  wget -${ipv_forceopt}cnv https://wordpress.org/latest.zip
   unzip -q latest.zip
   cd wordpress
   \cp -Rf * /home/nginx/domains/${vhostname}/public

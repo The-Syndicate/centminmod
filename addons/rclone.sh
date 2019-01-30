@@ -10,7 +10,8 @@ DEBUG='y'
 
 CENTMINLOGDIR='/root/centminlogs'
 DIR_TMP='/svr-setup'
-BASEURL='http://downloads.rclone.org'
+RCLONE_BASEURL='https://downloads.rclone.org'
+FORCE_IPVFOUR='y' # curl/wget commands through script force IPv4
 ###########################################################
 # set locale temporarily to english
 # due to some non-english locale issues
@@ -24,7 +25,7 @@ for g in "" e f; do
     alias ${g}grep="LC_ALL=C ${g}grep"  # speed-up grep, egrep, fgrep
 done
 
-  if [[ "$(hostname -f 2>&1 | grep -w 'Unknown host')" ]]; then
+  if [[ "$(hostname -f 2>&1 | grep -w 'Unknown host')" || "$(hostname -f 2>&1 | grep -w 'service not known')" ]]; then
     HOSTDOMAIN=$(hostname)
   else
     HOSTDOMAIN=$(hostname -f)
@@ -100,6 +101,10 @@ if [ -f /proc/user_beancounters ]; then
             # 7401P at 12 cpu cores has 3.0Ghz clock frequency https://en.wikichip.org/wiki/amd/epyc/7401p
             # while greater than 12 cpu cores downclocks to 2.8Ghz
             CPUS=12
+        elif [[ "$(grep -o 'AMD EPYC 7371' /proc/cpuinfo | sort -u)" = 'AMD EPYC 7371' ]]; then
+            # 7371 at 8 cpu cores has 3.8Ghz clock frequency https://en.wikichip.org/wiki/amd/epyc/7371
+            # while greater than 8 cpu cores downclocks to 3.6Ghz
+            CPUS=8
         else
             CPUS=$(echo $(($CPUS+2)))
         fi
@@ -123,6 +128,10 @@ else
             # 7401P at 12 cpu cores has 3.0Ghz clock frequency https://en.wikichip.org/wiki/amd/epyc/7401p
             # while greater than 12 cpu cores downclocks to 2.8Ghz
             CPUS=12
+        elif [[ "$(grep -o 'AMD EPYC 7371' /proc/cpuinfo | sort -u)" = 'AMD EPYC 7371' ]]; then
+            # 7371 at 8 cpu cores has 3.8Ghz clock frequency https://en.wikichip.org/wiki/amd/epyc/7371
+            # while greater than 8 cpu cores downclocks to 3.6Ghz
+            CPUS=8
         else
             CPUS=$(echo $(($CPUS+4)))
         fi
@@ -200,7 +209,7 @@ rclone_install() {
       echo "------------------------------------------------"
       cd "$DIR_TMP"
       rm -rf rclone-*
-      wget -4 -cnv -O rclone-current-linux-amd64.zip "${BASEURL}/rclone-current-linux-amd64.zip"
+      wget -${ipv_forceopt}cnv -O rclone-current-linux-amd64.zip "${RCLONE_BASEURL}/rclone-current-linux-amd64.zip"
       unzip rclone-current-linux-amd64.zip
       cd rclone-*-linux-amd64
       \cp -f rclone /usr/sbin/
@@ -222,7 +231,7 @@ rclone_install() {
       echo "------------------------------------------------"
       cd "$DIR_TMP"
       rm -rf rclone-*
-      wget -4 -cnv -O rclone-current-linux-386.zip "${BASEURL}/rclone-current-linux-386.zip"
+      wget -${ipv_forceopt}cnv -O rclone-current-linux-386.zip "${RCLONE_BASEURL}/rclone-current-linux-386.zip"
       unzip rclone-current-linux-386.zip
       cd rclone-*-linux-386
       \cp -f rclone /usr/sbin/
