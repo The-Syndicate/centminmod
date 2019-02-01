@@ -2054,7 +2054,7 @@ cd /home/nginx/domains/${vhostname}/public${WPSUBDIR}
  
 \wp core config --dbname=$DB --dbuser=$DBUSER --dbpass=$DBPASS --allow-root
  
-NEWPREFIX=$(echo $RANDOM)
+NEWPREFIX=$(echo 'HIDDEN')
 sed -i "s/'wp_';/'${NEWPREFIX}_';/g" wp-config.php
 
 sed -i "/define( 'DB_COLLATE', '' );/ a\
@@ -2186,11 +2186,7 @@ if [[ "$wpscache" = 'redis' ]]; then
 fi
 
 cecho "------------------------------------------------------------" $boldgreen
-\wp plugin install sucuri-scanner --activate --allow-root
-cecho "------------------------------------------------------------" $boldgreen
 \wp plugin install disable-xml-rpc --activate --allow-root
-cecho "------------------------------------------------------------" $boldgreen
-\wp plugin install cdn-enabler --activate --allow-root
 cecho "------------------------------------------------------------" $boldgreen
 
 if [[ "$WPPLUGINS_ALL" = [yY] ]]; then
