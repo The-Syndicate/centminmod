@@ -19,7 +19,7 @@ Fastest method of install and allows fully unattended installation. Just type th
 
 ### For latest 1.2.3-eva2000.09 beta install
 
-    yum -y update; curl -O https://centminmod.com/betainstaller.sh && chmod 0700 betainstaller.sh && bash betainstaller.sh
+    yum -y update; curl -O https://raw.githubusercontent.com/The-Syndicate/centminmod/123.09beta01/installer73.sh && chmod 0700 installer73.sh && bash installer73.sh
 
 ## Centmin Mod installed via Git    
 
